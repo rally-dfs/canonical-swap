@@ -44,6 +44,7 @@ describe("canonical-swap", () => {
   // const wallet = anchor.Wallet.local();
 
   let canonicalMint: Token;
+  let tokenDistributorTokenAccount: PublicKey;
   let expectedMintAuthorityPDA: PublicKey;
 
   const wrappedDecimals = 8;
@@ -83,6 +84,17 @@ describe("canonical-swap", () => {
       null,
       canonicalDecimals,
       TOKEN_PROGRAM_ID
+    );
+
+    tokenDistributorTokenAccount = await canonicalMint.createAccount(
+      wallet.publicKey
+    );
+
+    await canonicalMint.mintTo(
+      tokenDistributorTokenAccount,
+      canonicalAuthority.publicKey,
+      [canonicalAuthority],
+      1000000000
     );
 
     [expectedMintAuthorityPDA] = await PublicKey.findProgramAddress(
@@ -190,18 +202,29 @@ describe("canonical-swap", () => {
         wallet.publicKey
       );
 
-      const amount = new BN(100);
+      const destinationAmount = new BN(100);
+      const sourceAmount = destinationAmount.toNumber() / 10;
 
       await wrappedMint.mintTo(
         sourceTokenAccount,
         canonicalAuthority.publicKey,
         [canonicalAuthority],
-        amount.toNumber() / 10
+        sourceAmount
       );
 
-      await canSwap.rpc.swapWrappedForCanonical(amount, {
+      const preTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
+        destinationTokenAccount
+      );
+      assert.ok(preTxDestinationTokenAccount.amount.eq(new BN(0)));
+
+      const preTxSourceTokenAccount = await wrappedMint.getAccountInfo(
+        sourceTokenAccount
+      );
+      assert.ok(preTxSourceTokenAccount.amount.eq(new BN(sourceAmount)));
+
+      await canSwap.rpc.swapWrappedForCanonical(destinationAmount, {
         accounts: {
-          destinationSigner: wallet.publicKey,
+          user: wallet.publicKey,
           destinationCanonicalTokenAccount: destinationTokenAccount,
           canonicalMint: canonicalMint.publicKey,
           canonicalMintAuthority: expectedMintAuthorityPDA,
@@ -218,9 +241,72 @@ describe("canonical-swap", () => {
       const postTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
         destinationTokenAccount
       );
-      assert.ok(postTxDestinationTokenAccount.amount.eq(amount));
+      assert.ok(postTxDestinationTokenAccount.amount.eq(destinationAmount));
 
       const postTxSourceTokenAccount = await wrappedMint.getAccountInfo(
+        sourceTokenAccount
+      );
+      assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
+    });
+
+    it("burns canonical from source and transfers wrapped into destination", async () => {
+      const sourceTokenAccount = await canonicalMint.createAccount(
+        wallet.publicKey
+      );
+
+      const destinationTokenAccount = await wrappedMint.createAccount(
+        wallet.publicKey
+      );
+
+      const destinationAmount = new BN(10);
+      const sourceAmount = destinationAmount.toNumber() * 10;
+
+      await canonicalMint.transfer(
+        tokenDistributorTokenAccount,
+        sourceTokenAccount,
+        wallet.publicKey,
+        [wallet.payer],
+        sourceAmount
+      );
+
+      const preTxDestinationTokenAccount = await wrappedMint.getAccountInfo(
+        destinationTokenAccount
+      );
+      assert.ok(preTxDestinationTokenAccount.amount.eq(new BN(0)));
+
+      const preTxSourceTokenAccount = await canonicalMint.getAccountInfo(
+        sourceTokenAccount
+      );
+
+      assert.ok(preTxSourceTokenAccount.amount.eq(new BN(sourceAmount)));
+
+      const [wrappedPdaAuthority, _bump] = await PublicKey.findProgramAddress(
+        [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED],
+        canSwap.programId
+      );
+
+      await canSwap.rpc.swapCanonicalForWrapped(destinationAmount, {
+        accounts: {
+          user: wallet.publicKey,
+          sourceCanonicalTokenAccount: sourceTokenAccount,
+          canonicalMint: canonicalMint.publicKey,
+          destinationWrappedTokenAccount: destinationTokenAccount,
+          wrappedTokenMint: wrappedMint.publicKey,
+          wrappedTokenAccount,
+          wrappedTokenAuthority: wrappedPdaAuthority,
+          canonicalData: canonicalData.publicKey,
+          wrappedData: wrappedData.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        },
+        signers: [wallet.payer],
+      });
+
+      const postTxDestinationTokenAccount = await wrappedMint.getAccountInfo(
+        destinationTokenAccount
+      );
+      assert.ok(postTxDestinationTokenAccount.amount.eq(destinationAmount));
+
+      const postTxSourceTokenAccount = await canonicalMint.getAccountInfo(
         sourceTokenAccount
       );
       assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
