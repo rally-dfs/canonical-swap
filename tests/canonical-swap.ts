@@ -44,7 +44,7 @@ describe("canonical-swap", () => {
   // const wallet = anchor.Wallet.local();
 
   let canonicalMint: Token;
-  let expectedMintAuthorityPDA: [PublicKey, number];
+  let expectedMintAuthorityPDA: PublicKey;
 
   before("Sets up accounts, canonical token and canonical mint", async () => {
     await provider.connection.confirmTransaction(
@@ -79,14 +79,12 @@ describe("canonical-swap", () => {
       TOKEN_PROGRAM_ID
     );
 
-    expectedMintAuthorityPDA = await PublicKey.findProgramAddress(
+    [expectedMintAuthorityPDA] = await PublicKey.findProgramAddress(
       [CANONICAL_MINT_AUTHORITY_PDA_SEED],
       canSwap.programId
     );
-  });
 
-  it("Initializes and creates a PDA to have mint authority", async () => {
-    const tx = await canSwap.rpc.initializeCanonicalToken(canonicalDecimals, {
+    await canSwap.rpc.initializeCanonicalToken(canonicalDecimals, {
       accounts: {
         initializer: canonicalAuthority.publicKey,
         canonicalMint: canonicalMint.publicKey,
@@ -99,75 +97,88 @@ describe("canonical-swap", () => {
       ],
       signers: [canonicalData, canonicalAuthority],
     });
-
-    let postTxCanonicalData = await canSwap.account.canonicalData.fetch(
-      canonicalData.publicKey
-    );
-
-    assert.ok(
-      postTxCanonicalData.initializer.equals(canonicalAuthority.publicKey)
-    );
-    assert.ok(postTxCanonicalData.mint.equals(canonicalMint.publicKey));
-    assert.ok(postTxCanonicalData.decimals === canonicalDecimals);
-
-    const mintInfo = await canonicalMint.getMintInfo();
-    assert.ok(mintInfo.mintAuthority.equals(expectedMintAuthorityPDA[0]));
   });
 
-  it("initializes and whitelists wrapped token", async () => {
+  describe("#initializeCanonicalToken", () => {
+    it("Make sure initialized canonical token has set proper account data", async () => {
+      const postTxCanonicalData = await canSwap.account.canonicalData.fetch(
+        canonicalData.publicKey
+      );
+
+      assert.ok(
+        postTxCanonicalData.initializer.equals(canonicalAuthority.publicKey)
+      );
+      assert.ok(postTxCanonicalData.mint.equals(canonicalMint.publicKey));
+      assert.ok(postTxCanonicalData.decimals === canonicalDecimals);
+
+      const mintInfo = await canonicalMint.getMintInfo();
+      assert.ok(mintInfo.mintAuthority.equals(expectedMintAuthorityPDA));
+    });
+  });
+
+  describe("#initializeWrappedToken", () => {
     const wrappedDecimals = 8;
     const wrappedData = anchor.web3.Keypair.generate();
+    let wrappedMint: Token;
+    let wrappedTokenAccount: PublicKey;
+    let wrappedTokenAccountBump: number;
 
-    const wrappedMint = await Token.createMint(
-      provider.connection,
-      wallet.payer,
-      canonicalAuthority.publicKey,
-      null,
-      wrappedDecimals,
-      TOKEN_PROGRAM_ID
-    );
+    before("Sets up a proper wrapped token", async () => {
+      wrappedMint = await Token.createMint(
+        provider.connection,
+        wallet.payer,
+        canonicalAuthority.publicKey,
+        null,
+        wrappedDecimals,
+        TOKEN_PROGRAM_ID
+      );
 
-    const [wrappedTokenAccount, wrappedTokenAccountBump] =
-      await PublicKey.findProgramAddress(
-        [TOKEN_ACCOUNT_SEED],
+      [wrappedTokenAccount, wrappedTokenAccountBump] =
+        await PublicKey.findProgramAddress(
+          [TOKEN_ACCOUNT_SEED],
+          canSwap.programId
+        );
+
+      await canSwap.rpc.initializeWrappedToken(
+        wrappedDecimals,
+        wrappedTokenAccountBump,
+        {
+          accounts: {
+            initializer: canonicalAuthority.publicKey,
+            wrappedTokenMint: wrappedMint.publicKey,
+            wrappedTokenAccount,
+            canonicalData: canonicalData.publicKey,
+            wrappedData: wrappedData.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            systemProgram: SystemProgram.programId,
+          },
+          instructions: [
+            await canSwap.account.wrappedData.createInstruction(wrappedData),
+          ],
+          signers: [wrappedData, canonicalAuthority],
+        }
+      );
+    });
+
+    it("Make sure initialized wrapped token has set proper account data", async () => {
+      const postTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+
+      assert.ok(
+        postTxWrappedData.canonicalData.equals(canonicalData.publicKey)
+      );
+      assert.ok(postTxWrappedData.mint.equals(wrappedMint.publicKey));
+      assert.ok(postTxWrappedData.decimals === wrappedDecimals);
+
+      const accountInfo = await wrappedMint.getAccountInfo(wrappedTokenAccount);
+      const [wrappedPdaAuthority, _bump] = await PublicKey.findProgramAddress(
+        [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED],
         canSwap.programId
       );
 
-    const tx = await canSwap.rpc.initializeWrappedToken(
-      wrappedDecimals,
-      wrappedTokenAccountBump,
-      {
-        accounts: {
-          initializer: canonicalAuthority.publicKey,
-          wrappedTokenMint: wrappedMint.publicKey,
-          wrappedTokenAccount,
-          canonicalData: canonicalData.publicKey,
-          wrappedData: wrappedData.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          systemProgram: SystemProgram.programId,
-        },
-        instructions: [
-          await canSwap.account.wrappedData.createInstruction(wrappedData),
-        ],
-        signers: [wrappedData, canonicalAuthority],
-      }
-    );
-
-    let postTxWrappedData = await canSwap.account.wrappedData.fetch(
-      wrappedData.publicKey
-    );
-
-    assert.ok(postTxWrappedData.canonicalData.equals(canonicalData.publicKey));
-    assert.ok(postTxWrappedData.mint.equals(wrappedMint.publicKey));
-    assert.ok(postTxWrappedData.decimals === wrappedDecimals);
-
-    const accountInfo = await wrappedMint.getAccountInfo(wrappedTokenAccount);
-    const [wrappedPdaAuthority, _bump] = await PublicKey.findProgramAddress(
-      [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED],
-      canSwap.programId
-    );
-
-    assert.ok(accountInfo.owner.equals(wrappedPdaAuthority));
+      assert.ok(accountInfo.owner.equals(wrappedPdaAuthority));
+    });
   });
 });
