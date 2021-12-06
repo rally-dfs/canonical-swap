@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, MintTo, SetAuthority, TokenAccount};
+use anchor_spl::token::{self, Mint, MintTo, SetAuthority, TokenAccount, Transfer};
 use spl_token::instruction::AuthorityType;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
@@ -63,6 +63,56 @@ pub mod canonical_swap {
         )?;
         Ok(())
     }
+
+    pub fn swap_wrapped_for_canonical(
+        ctx: Context<SwapWrappedForCanonical>,
+        canonical_amount: u64,
+    ) -> ProgramResult {
+        let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
+        let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
+
+        let mut wrapped_amount = canonical_amount;
+
+        if canonical_decimals > wrapped_decimals {
+            let decimal_diff = canonical_decimals - wrapped_decimals;
+            let conversion_factor = 10u64.pow(decimal_diff);
+            wrapped_amount = canonical_amount / conversion_factor;
+        } else if canonical_decimals < wrapped_decimals {
+            let decimal_diff = wrapped_decimals - canonical_decimals;
+            let conversion_factor = 10u64.pow(decimal_diff);
+            wrapped_amount = canonical_amount * conversion_factor;
+        }
+
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.source_wrapped_token_account.to_account_info(),
+            to: ctx.accounts.wrapped_token_account.to_account_info(),
+            authority: ctx.accounts.destination_signer.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        token::transfer(cpi_ctx, wrapped_amount)?;
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_accounts = MintTo {
+            to: ctx
+                .accounts
+                .destination_canonical_token_account
+                .to_account_info(),
+            mint: ctx.accounts.canonical_mint.to_account_info(),
+            authority: ctx.accounts.canonical_mint_authority.to_account_info(),
+        };
+
+        let (_authority, authority_bump) =
+            Pubkey::find_program_address(&[CANONICAL_MINT_AUTHORITY_PDA_SEED], ctx.program_id);
+        let authority_seeds = &[&CANONICAL_MINT_AUTHORITY_PDA_SEED[..], &[authority_bump]];
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        token::mint_to(
+            cpi_ctx.with_signer(&[&authority_seeds[..]]),
+            canonical_amount,
+        )?;
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -117,6 +167,40 @@ pub struct InitializeWrappedToken<'info> {
     pub token_program: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(canonical_amount: u64)]
+pub struct SwapWrappedForCanonical<'info> {
+    // any signer
+    pub destination_signer: Signer<'info>,
+    // Token account for resulting canonical tokens
+    #[account(mut)]
+    pub destination_canonical_token_account: Account<'info, TokenAccount>,
+    // Canonical mint account
+    #[account(mut)]
+    pub canonical_mint: Account<'info, Mint>,
+    // PDA owning the mint authority
+    pub canonical_mint_authority: AccountInfo<'info>,
+
+    #[account(mut)]
+    pub source_wrapped_token_account: Account<'info, TokenAccount>,
+    pub wrapped_token_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub wrapped_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
+    )]
+    pub canonical_data: Box<Account<'info, CanonicalData>>,
+
+    #[account(
+        has_one = canonical_data,
+    )]
+    pub wrapped_data: Box<Account<'info, WrappedData>>,
+
+    #[account(address = token::ID)]
+    pub token_program: AccountInfo<'info>,
 }
 
 #[account]
