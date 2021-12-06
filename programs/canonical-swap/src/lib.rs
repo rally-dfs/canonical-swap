@@ -25,8 +25,7 @@ pub mod canonical_swap {
             current_authority: ctx.accounts.initializer.to_account_info(),
             account_or_mint: ctx.accounts.canonical_mint.to_account_info(),
         };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
 
         let (mint_authority, _sale_authority_bump) =
             Pubkey::find_program_address(&[CANONICAL_MINT_AUTHORITY_PDA_SEED], ctx.program_id);
@@ -51,8 +50,7 @@ pub mod canonical_swap {
             current_authority: ctx.accounts.initializer.to_account_info(),
             account_or_mint: ctx.accounts.wrapped_token_account.to_account_info(),
         };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
 
         let (wrapped_token_pda_authority, _wrapped_token_pda_authority_bump) =
             Pubkey::find_program_address(&[WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED], ctx.program_id);
@@ -88,11 +86,9 @@ pub mod canonical_swap {
             to: ctx.accounts.wrapped_token_account.to_account_info(),
             authority: ctx.accounts.destination_signer.to_account_info(),
         };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_ctx, wrapped_amount)?;
 
-        let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_accounts = MintTo {
             to: ctx
                 .accounts
@@ -106,7 +102,7 @@ pub mod canonical_swap {
             Pubkey::find_program_address(&[CANONICAL_MINT_AUTHORITY_PDA_SEED], ctx.program_id);
         let authority_seeds = &[&CANONICAL_MINT_AUTHORITY_PDA_SEED[..], &[authority_bump]];
 
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::mint_to(
             cpi_ctx.with_signer(&[&authority_seeds[..]]),
             canonical_amount,
