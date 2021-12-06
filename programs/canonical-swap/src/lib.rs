@@ -31,7 +31,8 @@ pub mod canonical_swap {
         let (mint_authority, _sale_authority_bump) =
             Pubkey::find_program_address(&[CANONICAL_MINT_AUTHORITY_PDA_SEED], ctx.program_id);
 
-        token::set_authority(cpi_ctx, AuthorityType::MintTokens, Some(mint_authority))
+        token::set_authority(cpi_ctx, AuthorityType::MintTokens, Some(mint_authority))?;
+        Ok(())
     }
 
     pub fn initialize_wrapped_token(
