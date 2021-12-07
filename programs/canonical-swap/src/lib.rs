@@ -73,6 +73,7 @@ pub mod canonical_swap {
         canonical_amount: u64,
         canonical_mint_authority_bump: u8,
     ) -> ProgramResult {
+        // Determine decimal conversion
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
 
@@ -88,6 +89,7 @@ pub mod canonical_swap {
             wrapped_amount = canonical_amount * conversion_factor;
         }
 
+        // Transfer wrapped tokens from user account to program account
         let cpi_accounts = Transfer {
             from: ctx.accounts.source_wrapped_token_account.to_account_info(),
             to: ctx.accounts.wrapped_token_account.to_account_info(),
@@ -96,6 +98,7 @@ pub mod canonical_swap {
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(cpi_ctx, wrapped_amount)?;
 
+        // Mint canonical tokens
         let cpi_accounts = MintTo {
             to: ctx
                 .accounts
@@ -122,6 +125,7 @@ pub mod canonical_swap {
         wrapped_amount: u64,
         wrapped_token_account_authority_bump: u8,
     ) -> ProgramResult {
+        // Determine decimal conversion
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
 
@@ -137,6 +141,7 @@ pub mod canonical_swap {
             canonical_amount = wrapped_amount / conversion_factor;
         }
 
+        // Burn tokens from users canonical supply
         let cpi_accounts = Burn {
             to: ctx
                 .accounts
@@ -149,6 +154,7 @@ pub mod canonical_swap {
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::burn(cpi_ctx, canonical_amount)?;
 
+        // Transfer wrapped tokens from program account to user account
         let cpi_accounts = Transfer {
             from: ctx.accounts.wrapped_token_account.to_account_info(),
             to: ctx
@@ -176,18 +182,22 @@ pub struct InitializeCanonicalToken<'info> {
     pub initializer: Signer<'info>,
 
     // Canonical spl-token mint account
-    // THIS METHOD WILL TRANSFER MINT AUTHORITY TO A PDA
+    // THE MINT AUTHORITY WILL BE TRANSFERRED FROM
+    // `initializer` TO `canonical_mint_authority` PDA
     #[account(mut)]
     pub canonical_mint: Account<'info, Mint>,
 
+    // Mint authority holding PDA
     #[account(
         seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
         bump = canonical_mint_authority_bump,
     )]
     pub canonical_mint_authority: AccountInfo<'info>,
 
+    // Data account holding information about the
+    // canonical token
     #[account(zero)]
-    pub canonical_data: Box<Account<'info, CanonicalData>>,
+    pub canonical_data: Account<'info, CanonicalData>,
 
     #[account(address = token::ID)]
     pub token_program: AccountInfo<'info>,
@@ -201,9 +211,9 @@ pub struct InitializeWrappedToken<'info> {
     pub initializer: Signer<'info>,
     pub wrapped_token_mint: Account<'info, Mint>,
 
-    // initializer will start out with owernship of this token account.
-    // THIS METHOD WILL TRANSFER OWNERSHIP AUTHORITY TO A PDA
-    // after initialization this token account will hold all wrapped tokens
+    // Wrapped token holding PDA
+    // THE OWNER AUTHORITY WILL BE TRANSFERRED FROM
+    // `initializer` TO `wrapped_token_account_authority` PDA
     #[account(
         init,
         seeds = [WRAPPED_TOKEN_ACCOUNT_PDA_SEED.as_ref()],
@@ -214,21 +224,24 @@ pub struct InitializeWrappedToken<'info> {
     )]
     pub wrapped_token_account: Account<'info, TokenAccount>,
 
+    // Wrapped token account owner PDA
     #[account(
         seeds = [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref()],
         bump = wrapped_token_account_authority_bump,
     )]
     pub wrapped_token_account_authority: AccountInfo<'info>,
 
-    // ensure that initializer for a given wrapped token has already initialized
-    // a canonical token to pair with
+    // Data account holding information about the
+    // canonical token
     #[account(
         constraint = canonical_data.initializer == *initializer.key,
     )]
-    pub canonical_data: Box<Account<'info, CanonicalData>>,
+    pub canonical_data: Account<'info, CanonicalData>,
 
+    // Data account holding information about the
+    // wrapped token
     #[account(zero)]
-    pub wrapped_data: Box<Account<'info, WrappedData>>,
+    pub wrapped_data: Account<'info, WrappedData>,
 
     #[account(address = token::ID)]
     pub token_program: AccountInfo<'info>,
@@ -239,36 +252,41 @@ pub struct InitializeWrappedToken<'info> {
 #[derive(Accounts)]
 #[instruction(canonical_amount: u64, canonical_mint_authority_bump: u8)]
 pub struct SwapWrappedForCanonical<'info> {
-    // any signer
+    // Any end user wanting to swap tokens
     pub user: Signer<'info>,
+
     // Token account for resulting canonical tokens
     #[account(mut)]
     pub destination_canonical_token_account: Account<'info, TokenAccount>,
+
     // Canonical mint account
     #[account(mut)]
     pub canonical_mint: Account<'info, Mint>,
-    // PDA owning the mint authority
+
+    // PDA having  mint authority
     #[account(
         seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
         bump = canonical_mint_authority_bump,
     )]
     pub canonical_mint_authority: AccountInfo<'info>,
 
+    // The user owned token account transfer wrapped tokens from
     #[account(mut)]
     pub source_wrapped_token_account: Account<'info, TokenAccount>,
-    pub wrapped_token_mint: Account<'info, Mint>,
+
+    // The PDA token account to transfer wrapped tokens to
     #[account(mut)]
     pub wrapped_token_account: Account<'info, TokenAccount>,
 
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
     )]
-    pub canonical_data: Box<Account<'info, CanonicalData>>,
+    pub canonical_data: Account<'info, CanonicalData>,
 
     #[account(
         has_one = canonical_data,
     )]
-    pub wrapped_data: Box<Account<'info, WrappedData>>,
+    pub wrapped_data: Account<'info, WrappedData>,
 
     #[account(address = token::ID)]
     pub token_program: AccountInfo<'info>,
@@ -279,18 +297,23 @@ pub struct SwapWrappedForCanonical<'info> {
 pub struct SwapCanonicalForWrapped<'info> {
     // any signer
     pub user: Signer<'info>,
+
     // Token account for resulting canonical tokens
     #[account(mut)]
     pub source_canonical_token_account: Account<'info, TokenAccount>,
+
     // Canonical mint account
     #[account(mut)]
     pub canonical_mint: Account<'info, Mint>,
 
+    // The user owned token account to transfer wrapped tokens to
     #[account(mut)]
     pub destination_wrapped_token_account: Account<'info, TokenAccount>,
-    pub wrapped_token_mint: Account<'info, Mint>,
+
+    // The PDA token account to transfer wrapped tokens from
     #[account(mut)]
     pub wrapped_token_account: Account<'info, TokenAccount>,
+
     // PDA owning the wrapped token account
     #[account(
         seeds = [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref()],
@@ -301,12 +324,12 @@ pub struct SwapCanonicalForWrapped<'info> {
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
     )]
-    pub canonical_data: Box<Account<'info, CanonicalData>>,
+    pub canonical_data: Account<'info, CanonicalData>,
 
     #[account(
         has_one = canonical_data,
     )]
-    pub wrapped_data: Box<Account<'info, WrappedData>>,
+    pub wrapped_data: Account<'info, WrappedData>,
 
     #[account(address = token::ID)]
     pub token_program: AccountInfo<'info>,
