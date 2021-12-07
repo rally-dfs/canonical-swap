@@ -89,7 +89,7 @@ describe("canonical-swap", () => {
 
     [expectedMintAuthorityPDA, expectedMintAuthorityBump] =
       await PublicKey.findProgramAddress(
-        [CANONICAL_MINT_AUTHORITY_PDA_SEED],
+        [CANONICAL_MINT_AUTHORITY_PDA_SEED, canonicalMint.publicKey.toBuffer()],
         canSwap.programId
       );
 
@@ -97,7 +97,7 @@ describe("canonical-swap", () => {
       accounts: {
         initializer: canonicalAuthority.publicKey,
         canonicalMint: canonicalMint.publicKey,
-        canonicalMintAuthority: expectedMintAuthorityPDA,
+        pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
         canonicalData: canonicalData.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -122,13 +122,21 @@ describe("canonical-swap", () => {
 
     [wrappedTokenAccount, wrappedTokenAccountBump] =
       await PublicKey.findProgramAddress(
-        [TOKEN_ACCOUNT_SEED],
+        [
+          TOKEN_ACCOUNT_SEED,
+          canonicalMint.publicKey.toBuffer(),
+          wrappedMint.publicKey.toBuffer(),
+        ],
         canSwap.programId
       );
 
     [wrappedTokenAccountAuthority, wrappedTokenAccountAuthorityBump] =
       await PublicKey.findProgramAddress(
-        [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED],
+        [
+          WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+          canonicalMint.publicKey.toBuffer(),
+          wrappedMint.publicKey.toBuffer(),
+        ],
         canSwap.programId
       );
 
@@ -139,8 +147,8 @@ describe("canonical-swap", () => {
         accounts: {
           initializer: canonicalAuthority.publicKey,
           wrappedTokenMint: wrappedMint.publicKey,
-          wrappedTokenAccount,
-          wrappedTokenAccountAuthority,
+          pdaWrappedTokenAccount: wrappedTokenAccount,
+          pdaWrappedTokenAccountAuthority: wrappedTokenAccountAuthority,
           canonicalData: canonicalData.publicKey,
           wrappedData: wrappedData.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
@@ -189,7 +197,11 @@ describe("canonical-swap", () => {
 
       const accountInfo = await wrappedMint.getAccountInfo(wrappedTokenAccount);
       const [wrappedPdaAuthority, _bump] = await PublicKey.findProgramAddress(
-        [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED],
+        [
+          WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+          canonicalMint.publicKey.toBuffer(),
+          wrappedMint.publicKey.toBuffer(),
+        ],
         canSwap.programId
       );
 
@@ -235,7 +247,7 @@ describe("canonical-swap", () => {
             user: wallet.publicKey,
             destinationCanonicalTokenAccount: destinationTokenAccount,
             canonicalMint: canonicalMint.publicKey,
-            canonicalMintAuthority: expectedMintAuthorityPDA,
+            pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
             sourceWrappedTokenAccount: sourceTokenAccount,
             wrappedTokenAccount,
             canonicalData: canonicalData.publicKey,
@@ -300,7 +312,7 @@ describe("canonical-swap", () => {
             canonicalMint: canonicalMint.publicKey,
             destinationWrappedTokenAccount: destinationTokenAccount,
             wrappedTokenAccount,
-            wrappedTokenAuthority: wrappedTokenAccountAuthority,
+            pdaWrappedTokenAuthority: wrappedTokenAccountAuthority,
             canonicalData: canonicalData.publicKey,
             wrappedData: wrappedData.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -374,7 +386,7 @@ describe("canonical-swap", () => {
           accounts: {
             initializer: canonicalAuthority.publicKey,
             canonicalMint: canonicalMint.publicKey,
-            canonicalMintAuthority: expectedMintAuthorityPDA,
+            pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
             canonicalData: canonicalData.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
           },

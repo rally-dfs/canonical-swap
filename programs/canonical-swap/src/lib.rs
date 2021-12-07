@@ -36,7 +36,7 @@ pub mod canonical_swap {
         token::set_authority(
             cpi_ctx,
             AuthorityType::MintTokens,
-            Some(*ctx.accounts.canonical_mint_authority.key),
+            Some(*ctx.accounts.pda_canonical_mint_authority.key),
         )?;
         Ok(())
     }
@@ -57,14 +57,14 @@ pub mod canonical_swap {
         // Take ownership of token account for storage of wrapped
         let cpi_accounts = SetAuthority {
             current_authority: ctx.accounts.initializer.to_account_info(),
-            account_or_mint: ctx.accounts.wrapped_token_account.to_account_info(),
+            account_or_mint: ctx.accounts.pda_wrapped_token_account.to_account_info(),
         };
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
 
         token::set_authority(
             cpi_ctx,
             AuthorityType::AccountOwner,
-            Some(*ctx.accounts.wrapped_token_account_authority.key),
+            Some(*ctx.accounts.pda_wrapped_token_account_authority.key),
         )?;
         Ok(())
     }
@@ -108,11 +108,12 @@ pub mod canonical_swap {
                 .destination_canonical_token_account
                 .to_account_info(),
             mint: ctx.accounts.canonical_mint.to_account_info(),
-            authority: ctx.accounts.canonical_mint_authority.to_account_info(),
+            authority: ctx.accounts.pda_canonical_mint_authority.to_account_info(),
         };
 
         let authority_seeds = &[
             CANONICAL_MINT_AUTHORITY_PDA_SEED,
+            ctx.accounts.canonical_mint.to_account_info().key.as_ref(),
             &[canonical_mint_authority_bump],
         ];
 
@@ -164,11 +165,13 @@ pub mod canonical_swap {
                 .accounts
                 .destination_wrapped_token_account
                 .to_account_info(),
-            authority: ctx.accounts.wrapped_token_authority.to_account_info(),
+            authority: ctx.accounts.pda_wrapped_token_authority.to_account_info(),
         };
 
         let authority_seeds = &[
             WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+            ctx.accounts.canonical_data.mint.as_ref(),
+            ctx.accounts.wrapped_data.mint.as_ref(),
             &[wrapped_token_account_authority_bump],
         ];
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
@@ -185,12 +188,13 @@ pub mod canonical_swap {
     ) -> ProgramResult {
         // Take over mint authority for canonical token
         let cpi_accounts = SetAuthority {
-            current_authority: ctx.accounts.canonical_mint_authority.to_account_info(),
+            current_authority: ctx.accounts.pda_canonical_mint_authority.to_account_info(),
             account_or_mint: ctx.accounts.canonical_mint.to_account_info(),
         };
 
         let authority_seeds = &[
             CANONICAL_MINT_AUTHORITY_PDA_SEED,
+            ctx.accounts.canonical_mint.to_account_info().key.as_ref(),
             &[canonical_mint_authority_bump],
         ];
 
@@ -227,10 +231,13 @@ pub struct InitializeCanonicalToken<'info> {
 
     // Mint authority holding PDA
     #[account(
-        seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
+        seeds = [
+            CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref(),
+            canonical_mint.to_account_info().key.as_ref()
+        ],
         bump = canonical_mint_authority_bump,
     )]
-    pub canonical_mint_authority: AccountInfo<'info>,
+    pub pda_canonical_mint_authority: AccountInfo<'info>,
 
     // Data account holding information about the
     // canonical token
@@ -254,20 +261,28 @@ pub struct InitializeWrappedToken<'info> {
     // `initializer` TO `wrapped_token_account_authority` PDA
     #[account(
         init,
-        seeds = [WRAPPED_TOKEN_ACCOUNT_PDA_SEED.as_ref()],
+        seeds = [
+            WRAPPED_TOKEN_ACCOUNT_PDA_SEED.as_ref(),
+            canonical_data.mint.as_ref(),
+            wrapped_token_mint.to_account_info().key.as_ref()
+        ],
         bump = wrapped_token_account_bump,
         payer = initializer,
         token::mint = wrapped_token_mint,
         token::authority = initializer,
     )]
-    pub wrapped_token_account: Account<'info, TokenAccount>,
+    pub pda_wrapped_token_account: Account<'info, TokenAccount>,
 
     // Wrapped token account owner PDA
     #[account(
-        seeds = [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref()],
+        seeds = [
+            WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref(),
+            canonical_data.mint.as_ref(),
+            wrapped_token_mint.to_account_info().key.as_ref()
+        ],
         bump = wrapped_token_account_authority_bump,
     )]
-    pub wrapped_token_account_authority: AccountInfo<'info>,
+    pub pda_wrapped_token_account_authority: AccountInfo<'info>,
 
     // Data account holding information about the
     // canonical token
@@ -303,10 +318,13 @@ pub struct SwapWrappedForCanonical<'info> {
 
     // PDA having  mint authority
     #[account(
-        seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
+        seeds = [
+            CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref(),
+            canonical_mint.to_account_info().key.as_ref()
+        ],
         bump = canonical_mint_authority_bump,
     )]
-    pub canonical_mint_authority: AccountInfo<'info>,
+    pub pda_canonical_mint_authority: AccountInfo<'info>,
 
     // The user owned token account transfer wrapped tokens from
     #[account(mut)]
@@ -355,10 +373,14 @@ pub struct SwapCanonicalForWrapped<'info> {
 
     // PDA owning the wrapped token account
     #[account(
-        seeds = [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref()],
+        seeds = [
+            WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref(),
+            canonical_data.mint.as_ref(),
+            wrapped_data.mint.as_ref()
+        ],
         bump = wrapped_token_account_authority_bump,
     )]
-    pub wrapped_token_authority: AccountInfo<'info>,
+    pub pda_wrapped_token_authority: AccountInfo<'info>,
 
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
@@ -390,10 +412,13 @@ pub struct ReturnCanonicalTokenMintAuthority<'info> {
 
     // PDA having mint authority
     #[account(
-        seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
+        seeds = [
+            CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref(),
+            canonical_mint.to_account_info().key.as_ref()
+        ],
         bump = canonical_mint_authority_bump,
     )]
-    pub canonical_mint_authority: AccountInfo<'info>,
+    pub pda_canonical_mint_authority: AccountInfo<'info>,
 
     // Data account holding information about the
     // canonical token will be closed and rent returned
