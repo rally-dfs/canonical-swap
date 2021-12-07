@@ -1,4 +1,4 @@
-import chai from "chai";
+import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import * as anchor from "@project-serum/anchor";
 import { BN, Program, Provider } from "@project-serum/anchor";
@@ -9,7 +9,6 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import { Token, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import assert from "assert";
 import { CanonicalSwap } from "../target/types/canonical_swap";
 
 chai.use(chaiAsPromised);
@@ -32,16 +31,12 @@ describe("canonical-swap", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.Provider.env();
   anchor.setProvider(provider);
-
+  const wallet = provider.wallet as anchor.Wallet;
   const canSwap = anchor.workspace.CanonicalSwap as Program<CanonicalSwap>;
 
   const canonicalAuthority = Keypair.generate();
-  const canonicalData = anchor.web3.Keypair.generate();
-
+  const canonicalData = Keypair.generate();
   const canonicalDecimals = 9;
-
-  const wallet = provider.wallet as anchor.Wallet;
-  // const wallet = anchor.Wallet.local();
 
   let canonicalMint: Token;
   let tokenDistributorTokenAccount: PublicKey;
@@ -49,7 +44,7 @@ describe("canonical-swap", () => {
   let expectedMintAuthorityBump: number;
 
   const wrappedDecimals = 8;
-  const wrappedData = anchor.web3.Keypair.generate();
+  const wrappedData = Keypair.generate();
   let wrappedMint: Token;
   let wrappedTokenAccount: PublicKey;
   let wrappedTokenAccountBump: number;
@@ -330,6 +325,35 @@ describe("canonical-swap", () => {
         sourceTokenAccount
       );
       assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
+    });
+  });
+
+  describe("#return_canonical_token_mint_authority", () => {
+    it("returns the mint authority to the original initializer", async () => {
+      const preMintInfo = await canonicalMint.getMintInfo();
+      expect(preMintInfo.mintAuthority.toString()).to.eq(
+        expectedMintAuthorityPDA.toString()
+      );
+
+      await canSwap.rpc.returnCanonicalTokenMintAuthority(
+        expectedMintAuthorityBump,
+        {
+          accounts: {
+            initializer: canonicalAuthority.publicKey,
+            canonicalMint: canonicalMint.publicKey,
+            canonicalMintAuthority: expectedMintAuthorityPDA,
+            canonicalData: canonicalData.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          },
+          signers: [canonicalAuthority],
+        }
+      );
+
+      const postMintInfo = await canonicalMint.getMintInfo();
+
+      expect(postMintInfo.mintAuthority.toString()).to.eq(
+        canonicalAuthority.publicKey.toString()
+      );
     });
   });
 });
