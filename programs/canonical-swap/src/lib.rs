@@ -173,6 +173,33 @@ pub mod canonical_swap {
 
         Ok(())
     }
+
+    /// Set mint authority to the original account that transferred
+    /// it to the PDA and close the canonical_data account
+    pub fn return_canonical_token_mint_authority(
+        ctx: Context<ReturnCanonicalTokenMintAuthority>,
+        canonical_mint_authority_bump: u8,
+    ) -> ProgramResult {
+        // Take over mint authority for canonical token
+        let cpi_accounts = SetAuthority {
+            current_authority: ctx.accounts.canonical_mint_authority.to_account_info(),
+            account_or_mint: ctx.accounts.canonical_mint.to_account_info(),
+        };
+
+        let authority_seeds = &[
+            CANONICAL_MINT_AUTHORITY_PDA_SEED,
+            &[canonical_mint_authority_bump],
+        ];
+
+        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+
+        token::set_authority(
+            cpi_ctx.with_signer(&[authority_seeds]),
+            AuthorityType::MintTokens,
+            Some(ctx.accounts.canonical_data.initializer),
+        )?;
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -330,6 +357,41 @@ pub struct SwapCanonicalForWrapped<'info> {
         has_one = canonical_data,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
+
+    #[account(address = token::ID)]
+    pub token_program: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(canonical_mint_authority_bump: u8)]
+pub struct ReturnCanonicalTokenMintAuthority<'info> {
+    // must have minting authority for canonical token
+    #[account(mut)]
+    pub initializer: Signer<'info>,
+
+    // Canonical spl-token mint account
+    // THE MINT AUTHORITY WILL BE TRANSFERRED FROM
+    // `canonical_mint_authority` TO `canonical_data.initializer` PDA
+    #[account(mut)]
+    pub canonical_mint: Account<'info, Mint>,
+
+    // PDA having mint authority
+    #[account(
+        seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
+        bump = canonical_mint_authority_bump,
+    )]
+    pub canonical_mint_authority: AccountInfo<'info>,
+
+    // Data account holding information about the
+    // canonical token will be closed and rent returned
+    // to initializer after execution
+    #[account(
+        mut,
+        constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
+        has_one = initializer,
+        close = initializer,
+    )]
+    pub canonical_data: Account<'info, CanonicalData>,
 
     #[account(address = token::ID)]
     pub token_program: AccountInfo<'info>,
