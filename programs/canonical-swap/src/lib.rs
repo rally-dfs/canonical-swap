@@ -19,9 +19,10 @@ pub mod canonical_swap {
         _canonical_mint_authority_bump: u8,
     ) -> ProgramResult {
         // Set canonical token data
-        ctx.accounts.canonical_data.initializer = *ctx.accounts.initializer.key;
-        ctx.accounts.canonical_data.mint = *ctx.accounts.canonical_mint.to_account_info().key;
-        ctx.accounts.canonical_data.decimals = decimals;
+        let canonical_data = &mut ctx.accounts.canonical_data;
+        canonical_data.initializer = *ctx.accounts.initializer.key;
+        canonical_data.mint = *ctx.accounts.canonical_mint.to_account_info().key;
+        canonical_data.decimals = decimals;
 
         // Take over mint authority for canonical token
         let cpi_accounts = SetAuthority {
@@ -46,10 +47,11 @@ pub mod canonical_swap {
         _wrapped_token_account_authority_bump: u8,
     ) -> ProgramResult {
         // Set wrapped token data
-        ctx.accounts.wrapped_data.canonical_data =
-            *ctx.accounts.canonical_data.to_account_info().key;
-        ctx.accounts.wrapped_data.mint = *ctx.accounts.wrapped_token_mint.to_account_info().key;
-        ctx.accounts.wrapped_data.decimals = decimals;
+        let wrapped_data = &mut ctx.accounts.wrapped_data;
+
+        wrapped_data.canonical_data = *ctx.accounts.canonical_data.to_account_info().key;
+        wrapped_data.mint = *ctx.accounts.wrapped_token_mint.to_account_info().key;
+        wrapped_data.decimals = decimals;
 
         // Take ownership of token account for storage of wrapped
         let cpi_accounts = SetAuthority {
@@ -312,6 +314,7 @@ pub struct SwapWrappedForCanonical<'info> {
 
     #[account(
         has_one = canonical_data,
+        constraint = wrapped_data.mint == source_wrapped_token_account.mint,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 
@@ -355,6 +358,7 @@ pub struct SwapCanonicalForWrapped<'info> {
 
     #[account(
         has_one = canonical_data,
+        constraint = wrapped_data.mint == destination_wrapped_token_account.mint,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 
