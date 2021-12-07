@@ -52,14 +52,6 @@ describe("canonical-swap", () => {
   let wrappedTokenAccountAuthorityBump: number;
 
   before("Sets up accounts, canonical token and canonical mint", async () => {
-    await provider.connection.confirmTransaction(
-      await provider.connection.requestAirdrop(
-        wallet.payer.publicKey,
-        10000000000
-      ),
-      "confirmed"
-    );
-
     await provider.send(
       (() => {
         const tx = new Transaction();
@@ -111,7 +103,10 @@ describe("canonical-swap", () => {
         systemProgram: SystemProgram.programId,
       },
       instructions: [
-        await canSwap.account.canonicalData.createInstruction(canonicalData),
+        await canSwap.account.canonicalData.createInstruction(
+          canonicalData,
+          8 + 65
+        ),
       ],
       signers: [canonicalData, canonicalAuthority],
     });
@@ -153,7 +148,10 @@ describe("canonical-swap", () => {
           systemProgram: SystemProgram.programId,
         },
         instructions: [
-          await canSwap.account.wrappedData.createInstruction(wrappedData),
+          await canSwap.account.wrappedData.createInstruction(
+            wrappedData,
+            8 + 65
+          ),
         ],
         signers: [wrappedData, canonicalAuthority],
       }
