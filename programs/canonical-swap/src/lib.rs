@@ -4,16 +4,19 @@ use spl_token::instruction::AuthorityType;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
+const CANONICAL_MINT_AUTHORITY_PDA_SEED: &[u8] = b"can_mint_authority";
+const WRAPPED_TOKEN_ACCOUNT_PDA_SEED: &[u8] = b"token_account_seed";
+const WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED: &[u8] = b"wrapped_acct_authority";
+
 #[program]
 pub mod canonical_swap {
     use super::*;
 
-    const CANONICAL_MINT_AUTHORITY_PDA_SEED: &[u8] = b"can_mint_authority";
-    const WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED: &[u8] = b"wrapped_acct_authority";
-
+    /// Initialize a canonical token and transfer mint authority over to a PDA
     pub fn initialize_canonical_token(
         ctx: Context<InitializeCanonicalToken>,
         decimals: u8,
+        _canonical_mint_authority_bump: u8,
     ) -> ProgramResult {
         // Set canonical token data
         ctx.accounts.canonical_data.initializer = *ctx.accounts.initializer.key;
@@ -27,17 +30,20 @@ pub mod canonical_swap {
         };
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
 
-        let (mint_authority, _sale_authority_bump) =
-            Pubkey::find_program_address(&[CANONICAL_MINT_AUTHORITY_PDA_SEED], ctx.program_id);
-
-        token::set_authority(cpi_ctx, AuthorityType::MintTokens, Some(mint_authority))?;
+        token::set_authority(
+            cpi_ctx,
+            AuthorityType::MintTokens,
+            Some(*ctx.accounts.canonical_mint_authority.key),
+        )?;
         Ok(())
     }
 
+    /// Initialize a wrapped token paired to a canonical token
     pub fn initialize_wrapped_token(
         ctx: Context<InitializeWrappedToken>,
         decimals: u8,
-        _vault_account_bump: u8,
+        _wrapped_token_account_bump: u8,
+        _wrapped_token_account_authority_bump: u8,
     ) -> ProgramResult {
         // Set wrapped token data
         ctx.accounts.wrapped_data.canonical_data =
@@ -52,19 +58,20 @@ pub mod canonical_swap {
         };
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
 
-        let (wrapped_token_pda_authority, _wrapped_token_pda_authority_bump) =
-            Pubkey::find_program_address(&[WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED], ctx.program_id);
         token::set_authority(
             cpi_ctx,
             AuthorityType::AccountOwner,
-            Some(wrapped_token_pda_authority),
+            Some(*ctx.accounts.wrapped_token_account_authority.key),
         )?;
         Ok(())
     }
 
+    /// Transfer wrapped token to program owned token account and
+    /// mint canonical token to user owned token account
     pub fn swap_wrapped_for_canonical(
         ctx: Context<SwapWrappedForCanonical>,
         canonical_amount: u64,
+        canonical_mint_authority_bump: u8,
     ) -> ProgramResult {
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
@@ -98,21 +105,22 @@ pub mod canonical_swap {
             authority: ctx.accounts.canonical_mint_authority.to_account_info(),
         };
 
-        let (_authority, authority_bump) =
-            Pubkey::find_program_address(&[CANONICAL_MINT_AUTHORITY_PDA_SEED], ctx.program_id);
-        let authority_seeds = &[&CANONICAL_MINT_AUTHORITY_PDA_SEED[..], &[authority_bump]];
+        let authority_seeds = &[
+            CANONICAL_MINT_AUTHORITY_PDA_SEED,
+            &[canonical_mint_authority_bump],
+        ];
 
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
-        token::mint_to(
-            cpi_ctx.with_signer(&[&authority_seeds[..]]),
-            canonical_amount,
-        )?;
+        token::mint_to(cpi_ctx.with_signer(&[authority_seeds]), canonical_amount)?;
         Ok(())
     }
 
+    /// Burn canonical token from user account and
+    /// transfer wrapped canonical token to user owned token account
     pub fn swap_canonical_for_wrapped(
         ctx: Context<SwapCanonicalForWrapped>,
         wrapped_amount: u64,
+        wrapped_token_account_authority_bump: u8,
     ) -> ProgramResult {
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
@@ -150,20 +158,19 @@ pub mod canonical_swap {
             authority: ctx.accounts.wrapped_token_authority.to_account_info(),
         };
 
-        let (_authority, authority_bump) =
-            Pubkey::find_program_address(&[WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED], ctx.program_id);
         let authority_seeds = &[
-            &WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED[..],
-            &[authority_bump],
+            WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+            &[wrapped_token_account_authority_bump],
         ];
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
-        token::transfer(cpi_ctx.with_signer(&[&authority_seeds[..]]), wrapped_amount)?;
+        token::transfer(cpi_ctx.with_signer(&[authority_seeds]), wrapped_amount)?;
 
         Ok(())
     }
 }
 
 #[derive(Accounts)]
+#[instruction(decimals: u8, canonical_mint_authority_bump: u8)]
 pub struct InitializeCanonicalToken<'info> {
     // must have minting authority for canonical token
     pub initializer: Signer<'info>,
@@ -172,6 +179,12 @@ pub struct InitializeCanonicalToken<'info> {
     // THIS METHOD WILL TRANSFER MINT AUTHORITY TO A PDA
     #[account(mut)]
     pub canonical_mint: Account<'info, Mint>,
+
+    #[account(
+        seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
+        bump = canonical_mint_authority_bump,
+    )]
+    pub canonical_mint_authority: AccountInfo<'info>,
 
     #[account(zero)]
     pub canonical_data: Box<Account<'info, CanonicalData>>,
@@ -182,7 +195,7 @@ pub struct InitializeCanonicalToken<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(decimals: u8, wrapped_token_account_bump: u8)]
+#[instruction(decimals: u8, wrapped_token_account_bump: u8, wrapped_token_account_authority_bump: u8)]
 pub struct InitializeWrappedToken<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
@@ -193,13 +206,19 @@ pub struct InitializeWrappedToken<'info> {
     // after initialization this token account will hold all wrapped tokens
     #[account(
         init,
-        seeds = [b"token-account-seed".as_ref()],
+        seeds = [WRAPPED_TOKEN_ACCOUNT_PDA_SEED.as_ref()],
         bump = wrapped_token_account_bump,
         payer = initializer,
         token::mint = wrapped_token_mint,
         token::authority = initializer,
     )]
     pub wrapped_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        seeds = [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref()],
+        bump = wrapped_token_account_authority_bump,
+    )]
+    pub wrapped_token_account_authority: AccountInfo<'info>,
 
     // ensure that initializer for a given wrapped token has already initialized
     // a canonical token to pair with
@@ -218,6 +237,7 @@ pub struct InitializeWrappedToken<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(canonical_amount: u64, canonical_mint_authority_bump: u8)]
 pub struct SwapWrappedForCanonical<'info> {
     // any signer
     pub user: Signer<'info>,
@@ -228,6 +248,10 @@ pub struct SwapWrappedForCanonical<'info> {
     #[account(mut)]
     pub canonical_mint: Account<'info, Mint>,
     // PDA owning the mint authority
+    #[account(
+        seeds = [CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref()],
+        bump = canonical_mint_authority_bump,
+    )]
     pub canonical_mint_authority: AccountInfo<'info>,
 
     #[account(mut)]
@@ -251,6 +275,7 @@ pub struct SwapWrappedForCanonical<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(wrapped_amount: u64, wrapped_token_account_authority_bump: u8)]
 pub struct SwapCanonicalForWrapped<'info> {
     // any signer
     pub user: Signer<'info>,
@@ -267,6 +292,10 @@ pub struct SwapCanonicalForWrapped<'info> {
     #[account(mut)]
     pub wrapped_token_account: Account<'info, TokenAccount>,
     // PDA owning the wrapped token account
+    #[account(
+        seeds = [WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED.as_ref()],
+        bump = wrapped_token_account_authority_bump,
+    )]
     pub wrapped_token_authority: AccountInfo<'info>,
 
     #[account(
