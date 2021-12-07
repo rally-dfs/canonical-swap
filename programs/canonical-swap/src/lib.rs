@@ -1,7 +1,10 @@
+// TODO:
+// move whitelist authority
+// Non bricking of wrapped tokens
+
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, MintTo, SetAuthority, TokenAccount, Transfer};
 use spl_token::instruction::AuthorityType;
-
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 const CANONICAL_MINT_AUTHORITY_PDA_SEED: &[u8] = b"can_mint_authority";
@@ -19,7 +22,7 @@ pub mod canonical_swap {
     ) -> ProgramResult {
         // Set canonical token data
         let canonical_data = &mut ctx.accounts.canonical_data;
-        canonical_data.initializer = *ctx.accounts.initializer.key;
+        canonical_data.authority = *ctx.accounts.initializer.key;
         canonical_data.mint = *ctx.accounts.canonical_mint.to_account_info().key;
         canonical_data.decimals = ctx.accounts.canonical_mint.decimals;
 
@@ -196,8 +199,16 @@ pub mod canonical_swap {
         token::set_authority(
             cpi_ctx.with_signer(&[authority_seeds]),
             AuthorityType::MintTokens,
-            Some(ctx.accounts.canonical_data.initializer),
+            Some(ctx.accounts.canonical_data.authority),
         )?;
+        Ok(())
+    }
+
+    /// Set authority for adding wrapped token for given canonical token
+    pub fn set_canonical_swap_authority(ctx: Context<SetCanonicalSwapAuthority>) -> ProgramResult {
+        let canonical_data = &mut ctx.accounts.canonical_data;
+        canonical_data.authority = *ctx.accounts.new_authority.key;
+
         Ok(())
     }
 }
@@ -261,7 +272,7 @@ pub struct InitializeWrappedToken<'info> {
     // Data account holding information about the
     // canonical token
     #[account(
-        constraint = canonical_data.initializer == *initializer.key,
+        constraint = canonical_data.authority == *initializer.key,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
@@ -367,13 +378,13 @@ pub struct SwapCanonicalForWrapped<'info> {
 #[derive(Accounts)]
 #[instruction(canonical_mint_authority_bump: u8)]
 pub struct ReturnCanonicalTokenMintAuthority<'info> {
-    // must have minting authority for canonical token
+    // must equal `canonical_data.authority`
     #[account(mut)]
     pub initializer: Signer<'info>,
 
     // Canonical spl-token mint account
     // THE MINT AUTHORITY WILL BE TRANSFERRED FROM
-    // `canonical_mint_authority` TO `canonical_data.initializer` PDA
+    // `canonical_mint_authority` TO `canonical_data.authority`
     #[account(mut)]
     pub canonical_mint: Account<'info, Mint>,
 
@@ -390,7 +401,7 @@ pub struct ReturnCanonicalTokenMintAuthority<'info> {
     #[account(
         mut,
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
-        has_one = initializer,
+        constraint = canonical_data.authority == *initializer.key,
         close = initializer,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
@@ -399,9 +410,27 @@ pub struct ReturnCanonicalTokenMintAuthority<'info> {
     pub token_program: AccountInfo<'info>,
 }
 
+#[derive(Accounts)]
+pub struct SetCanonicalSwapAuthority<'info> {
+    // Current authority, must by equal to `canonical_data.authority`
+    pub current_authority: Signer<'info>,
+
+    // New authority to set `canonical_data.authority` to
+    pub new_authority: AccountInfo<'info>,
+
+    // Data account holding information about the
+    // canonical token will be closed and rent returned
+    // to initializer after execution
+    #[account(
+        mut,
+        constraint = canonical_data.authority == *current_authority.key,
+    )]
+    pub canonical_data: Account<'info, CanonicalData>,
+}
+
 #[account]
 pub struct CanonicalData {
-    pub initializer: Pubkey,
+    pub authority: Pubkey,
     pub mint: Pubkey,
     pub decimals: u8,
 }
