@@ -101,24 +101,20 @@ describe("canonical-swap", () => {
         canSwap.programId
       );
 
-    await canSwap.rpc.initializeCanonicalToken(
-      canonicalDecimals,
-      expectedMintAuthorityBump,
-      {
-        accounts: {
-          initializer: canonicalAuthority.publicKey,
-          canonicalMint: canonicalMint.publicKey,
-          canonicalMintAuthority: expectedMintAuthorityPDA,
-          canonicalData: canonicalData.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        },
-        instructions: [
-          await canSwap.account.canonicalData.createInstruction(canonicalData),
-        ],
-        signers: [canonicalData, canonicalAuthority],
-      }
-    );
+    await canSwap.rpc.initializeCanonicalToken(expectedMintAuthorityBump, {
+      accounts: {
+        initializer: canonicalAuthority.publicKey,
+        canonicalMint: canonicalMint.publicKey,
+        canonicalMintAuthority: expectedMintAuthorityPDA,
+        canonicalData: canonicalData.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      },
+      instructions: [
+        await canSwap.account.canonicalData.createInstruction(canonicalData),
+      ],
+      signers: [canonicalData, canonicalAuthority],
+    });
 
     wrappedMint = await Token.createMint(
       provider.connection,
@@ -142,7 +138,6 @@ describe("canonical-swap", () => {
       );
 
     await canSwap.rpc.initializeWrappedToken(
-      wrappedDecimals,
       wrappedTokenAccountBump,
       wrappedTokenAccountAuthorityBump,
       {

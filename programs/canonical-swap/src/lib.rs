@@ -15,14 +15,13 @@ pub mod canonical_swap {
     /// Initialize a canonical token and transfer mint authority over to a PDA
     pub fn initialize_canonical_token(
         ctx: Context<InitializeCanonicalToken>,
-        decimals: u8,
         _canonical_mint_authority_bump: u8,
     ) -> ProgramResult {
         // Set canonical token data
         let canonical_data = &mut ctx.accounts.canonical_data;
         canonical_data.initializer = *ctx.accounts.initializer.key;
         canonical_data.mint = *ctx.accounts.canonical_mint.to_account_info().key;
-        canonical_data.decimals = decimals;
+        canonical_data.decimals = ctx.accounts.canonical_mint.decimals;
 
         // Take over mint authority for canonical token
         let cpi_accounts = SetAuthority {
@@ -42,7 +41,6 @@ pub mod canonical_swap {
     /// Initialize a wrapped token paired to a canonical token
     pub fn initialize_wrapped_token(
         ctx: Context<InitializeWrappedToken>,
-        decimals: u8,
         _wrapped_token_account_bump: u8,
         _wrapped_token_account_authority_bump: u8,
     ) -> ProgramResult {
@@ -51,7 +49,7 @@ pub mod canonical_swap {
 
         wrapped_data.canonical_data = *ctx.accounts.canonical_data.to_account_info().key;
         wrapped_data.mint = *ctx.accounts.wrapped_token_mint.to_account_info().key;
-        wrapped_data.decimals = decimals;
+        wrapped_data.decimals = ctx.accounts.wrapped_token_mint.decimals;
 
         // Take ownership of token account for storage of wrapped
         let cpi_accounts = SetAuthority {
@@ -205,7 +203,7 @@ pub mod canonical_swap {
 }
 
 #[derive(Accounts)]
-#[instruction(decimals: u8, canonical_mint_authority_bump: u8)]
+#[instruction(canonical_mint_authority_bump: u8)]
 pub struct InitializeCanonicalToken<'info> {
     // must have minting authority for canonical token
     pub initializer: Signer<'info>,
@@ -234,7 +232,7 @@ pub struct InitializeCanonicalToken<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(decimals: u8, wrapped_token_account_bump: u8, wrapped_token_account_authority_bump: u8)]
+#[instruction(wrapped_token_account_bump: u8, wrapped_token_account_authority_bump: u8)]
 pub struct InitializeWrappedToken<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
