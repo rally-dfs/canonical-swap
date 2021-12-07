@@ -165,7 +165,7 @@ describe("canonical-swap", () => {
       );
 
       assert.ok(
-        postTxCanonicalData.initializer.equals(canonicalAuthority.publicKey)
+        postTxCanonicalData.authority.equals(canonicalAuthority.publicKey)
       );
       assert.ok(postTxCanonicalData.mint.equals(canonicalMint.publicKey));
       assert.ok(postTxCanonicalData.decimals === canonicalDecimals);
@@ -318,6 +318,46 @@ describe("canonical-swap", () => {
         sourceTokenAccount
       );
       assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
+    });
+  });
+
+  describe("#set_canonical_swap_authority", () => {
+    it("Sets new authority for given canonical swap data", async () => {
+      const preTxCanonicalData = await canSwap.account.canonicalData.fetch(
+        canonicalData.publicKey
+      );
+      expect(preTxCanonicalData.authority.toString()).to.eq(
+        canonicalAuthority.publicKey.toString()
+      );
+
+      const newAuthority = Keypair.generate();
+
+      await canSwap.rpc.setCanonicalSwapAuthority({
+        accounts: {
+          currentAuthority: canonicalAuthority.publicKey,
+          newAuthority: newAuthority.publicKey,
+          canonicalData: canonicalData.publicKey,
+        },
+        signers: [canonicalAuthority],
+      });
+
+      const postTxCanonicalData = await canSwap.account.canonicalData.fetch(
+        canonicalData.publicKey
+      );
+
+      expect(postTxCanonicalData.authority.toString()).to.eq(
+        newAuthority.publicKey.toString()
+      );
+
+      // set back to original
+      await canSwap.rpc.setCanonicalSwapAuthority({
+        accounts: {
+          currentAuthority: newAuthority.publicKey,
+          newAuthority: canonicalAuthority.publicKey,
+          canonicalData: canonicalData.publicKey,
+        },
+        signers: [newAuthority],
+      });
     });
   });
 
