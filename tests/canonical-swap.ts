@@ -145,7 +145,7 @@ describe("canonical-swap", () => {
       wrappedTokenAccountAuthorityBump,
       {
         accounts: {
-          initializer: canonicalAuthority.publicKey,
+          currentAuthority: canonicalAuthority.publicKey,
           wrappedTokenMint: wrappedMint.publicKey,
           pdaWrappedTokenAccount: wrappedTokenAccount,
           pdaWrappedTokenAccountAuthority: wrappedTokenAccountAuthority,
@@ -158,7 +158,7 @@ describe("canonical-swap", () => {
         instructions: [
           await canSwap.account.wrappedData.createInstruction(
             wrappedData,
-            8 + 65
+            8 + 66
           ),
         ],
         signers: [wrappedData, canonicalAuthority],
@@ -194,6 +194,7 @@ describe("canonical-swap", () => {
       );
       assert.ok(postTxWrappedData.mint.equals(wrappedMint.publicKey));
       assert.ok(postTxWrappedData.decimals === wrappedDecimals);
+      assert.ok(postTxWrappedData.paused === false);
 
       const accountInfo = await wrappedMint.getAccountInfo(wrappedTokenAccount);
       const [wrappedPdaAuthority, _bump] = await PublicKey.findProgramAddress(
@@ -206,6 +207,93 @@ describe("canonical-swap", () => {
       );
 
       assert.ok(accountInfo.owner.equals(wrappedPdaAuthority));
+    });
+  });
+
+  describe("#pausing", () => {
+    it("pauses the wrapped token", async () => {
+      const preTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+      expect(preTxWrappedData.paused).to.be.false;
+
+      await canSwap.rpc.pauseWrappedToken({
+        accounts: {
+          currentAuthority: canonicalAuthority.publicKey,
+          canonicalData: canonicalData.publicKey,
+          wrappedData: wrappedData.publicKey,
+        },
+        signers: [canonicalAuthority],
+      });
+
+      const postTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+
+      expect(postTxWrappedData.paused).to.be.true;
+    });
+
+    it("fails swap when paused", async () => {
+      const destinationTokenAccount = await canonicalMint.createAccount(
+        wallet.publicKey
+      );
+
+      const sourceTokenAccount = await wrappedMint.createAccount(
+        wallet.publicKey
+      );
+
+      const destinationAmount = new BN(100);
+      const sourceAmount = destinationAmount.toNumber() / 10;
+
+      await wrappedMint.mintTo(
+        sourceTokenAccount,
+        canonicalAuthority.publicKey,
+        [canonicalAuthority],
+        sourceAmount
+      );
+
+      const failedSwap = canSwap.rpc.swapWrappedForCanonical(
+        destinationAmount,
+        expectedMintAuthorityBump,
+        {
+          accounts: {
+            user: wallet.publicKey,
+            destinationCanonicalTokenAccount: destinationTokenAccount,
+            canonicalMint: canonicalMint.publicKey,
+            pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
+            sourceWrappedTokenAccount: sourceTokenAccount,
+            wrappedTokenAccount,
+            canonicalData: canonicalData.publicKey,
+            wrappedData: wrappedData.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          },
+          signers: [wallet.payer],
+        }
+      );
+
+      await expect(failedSwap).to.eventually.be.rejected;
+    });
+
+    it("unpauses the wrapped token", async () => {
+      const preTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+      expect(preTxWrappedData.paused).to.be.true;
+
+      await canSwap.rpc.unpauseWrappedToken({
+        accounts: {
+          currentAuthority: canonicalAuthority.publicKey,
+          canonicalData: canonicalData.publicKey,
+          wrappedData: wrappedData.publicKey,
+        },
+        signers: [canonicalAuthority],
+      });
+
+      const postTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+
+      expect(postTxWrappedData.paused).to.be.false;
     });
   });
 
@@ -370,35 +458,6 @@ describe("canonical-swap", () => {
         },
         signers: [newAuthority],
       });
-    });
-  });
-
-  describe("#return_canonical_token_mint_authority", () => {
-    it("returns the mint authority to the original initializer", async () => {
-      const preMintInfo = await canonicalMint.getMintInfo();
-      expect(preMintInfo.mintAuthority.toString()).to.eq(
-        expectedMintAuthorityPDA.toString()
-      );
-
-      await canSwap.rpc.returnCanonicalTokenMintAuthority(
-        expectedMintAuthorityBump,
-        {
-          accounts: {
-            initializer: canonicalAuthority.publicKey,
-            canonicalMint: canonicalMint.publicKey,
-            pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
-            canonicalData: canonicalData.publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          },
-          signers: [canonicalAuthority],
-        }
-      );
-
-      const postMintInfo = await canonicalMint.getMintInfo();
-
-      expect(postMintInfo.mintAuthority.toString()).to.eq(
-        canonicalAuthority.publicKey.toString()
-      );
     });
   });
 });
