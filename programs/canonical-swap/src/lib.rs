@@ -273,6 +273,7 @@ pub struct InitializeWrappedToken<'info> {
     // canonical token
     #[account(
         constraint = canonical_data.authority == *current_authority.key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
@@ -321,6 +322,7 @@ pub struct SwapWrappedForCanonical<'info> {
 
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
@@ -328,6 +330,7 @@ pub struct SwapWrappedForCanonical<'info> {
         has_one = canonical_data,
         constraint = wrapped_data.mint == source_wrapped_token_account.mint,
         constraint = wrapped_data.paused == false,
+        owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 
@@ -370,6 +373,7 @@ pub struct SwapCanonicalForWrapped<'info> {
 
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
@@ -377,6 +381,7 @@ pub struct SwapCanonicalForWrapped<'info> {
         has_one = canonical_data,
         constraint = wrapped_data.mint == destination_wrapped_token_account.mint,
         constraint = wrapped_data.paused == false,
+        owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 
@@ -398,6 +403,7 @@ pub struct PauseWrappedToken<'info> {
         mut,
         has_one = canonical_data,
         constraint = wrapped_data.paused == false,
+        owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 }
@@ -416,6 +422,7 @@ pub struct UnpauseWrappedToken<'info> {
         mut,
         has_one = canonical_data,
         constraint = wrapped_data.paused == true,
+        owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 }
@@ -434,6 +441,7 @@ pub struct SetCanonicalSwapAuthority<'info> {
     #[account(
         mut,
         constraint = canonical_data.authority == *current_authority.key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 }
