@@ -172,14 +172,36 @@ describe("canonical-swap", () => {
         canonicalData.publicKey
       );
 
-      assert.ok(
-        postTxCanonicalData.authority.equals(canonicalAuthority.publicKey)
+      assert(
+        postTxCanonicalData.authority.equals(canonicalAuthority.publicKey),
+        "authority does not match"
       );
-      assert.ok(postTxCanonicalData.mint.equals(canonicalMint.publicKey));
-      assert.ok(postTxCanonicalData.decimals === canonicalDecimals);
+      assert(
+        postTxCanonicalData.mint.equals(canonicalMint.publicKey),
+        "canonical mint does not match"
+      );
+      expect(postTxCanonicalData.decimals).to.eq(canonicalDecimals);
 
       const mintInfo = await canonicalMint.getMintInfo();
-      assert.ok(mintInfo.mintAuthority.equals(expectedMintAuthorityPDA));
+      assert.ok(
+        mintInfo.mintAuthority.equals(expectedMintAuthorityPDA),
+        "mint authority does not match"
+      );
+
+      const dataAcctSolBalance = await provider.connection.getBalance(
+        canonicalData.publicKey
+      );
+
+      expect(dataAcctSolBalance).to.be.greaterThan(0);
+
+      const dataAcctInfo = await provider.connection.getAccountInfo(
+        canonicalData.publicKey
+      );
+
+      assert(
+        dataAcctInfo.owner.equals(canSwap.programId),
+        "data account owner is not program"
+      );
     });
   });
 
@@ -189,24 +211,38 @@ describe("canonical-swap", () => {
         wrappedData.publicKey
       );
 
-      assert.ok(
-        postTxWrappedData.canonicalData.equals(canonicalData.publicKey)
+      assert(
+        postTxWrappedData.canonicalData.equals(canonicalData.publicKey),
+        "1:many canonical data does not match"
       );
-      assert.ok(postTxWrappedData.mint.equals(wrappedMint.publicKey));
-      assert.ok(postTxWrappedData.decimals === wrappedDecimals);
-      assert.ok(postTxWrappedData.paused === false);
+      assert(
+        postTxWrappedData.mint.equals(wrappedMint.publicKey),
+        "wrapped mint does not match"
+      );
+      expect(postTxWrappedData.decimals).to.eq(wrappedDecimals);
+      expect(postTxWrappedData.paused).to.be.false;
 
       const accountInfo = await wrappedMint.getAccountInfo(wrappedTokenAccount);
-      const [wrappedPdaAuthority, _bump] = await PublicKey.findProgramAddress(
-        [
-          WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
-          canonicalMint.publicKey.toBuffer(),
-          wrappedMint.publicKey.toBuffer(),
-        ],
-        canSwap.programId
+
+      assert.ok(
+        accountInfo.owner.equals(wrappedTokenAccountAuthority),
+        "owner is not PDA"
       );
 
-      assert.ok(accountInfo.owner.equals(wrappedPdaAuthority));
+      const dataAcctSolBalance = await provider.connection.getBalance(
+        wrappedData.publicKey
+      );
+
+      expect(dataAcctSolBalance).to.be.greaterThan(0);
+
+      const dataAcctInfo = await provider.connection.getAccountInfo(
+        wrappedData.publicKey
+      );
+
+      assert(
+        dataAcctInfo.owner.equals(canSwap.programId),
+        "data account owner is not program"
+      );
     });
   });
 
