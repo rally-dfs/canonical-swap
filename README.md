@@ -8,6 +8,12 @@ It does this by taking mint authority for the given canonical token and mints/bu
 
 THE MINT AUTHORITY TRANSFER IS A ONE WAY TRANSFER. There is no way to return the mint authority back to the original account. This program is intended to be immutable and has only one safety precaution; whichever account has the authority (see [`set_canonical_swap_authority`](https://github.com/rally-dfs/canonical-swap/blob/v1.0.0/programs/canonical-swap/src/lib.rs#L197) to transfer this authority) can pause or unpause a whitelisted wrapped token. See [pause and unpause here](https://github.com/rally-dfs/canonical-swap/blob/v1.0.0/programs/canonical-swap/src/lib.rs#L181-L194).
 
+## Mainnet deploy
+
+This program is deployed on mainnet with Program Id: `CNSWAP9TsKjy3Ux1QxptQS2RFAiP5Eucf4odRHueNwzm`
+
+Source has been verified [here](https://anchor.projectserum.com/build/48)
+
 ## Local build and test
 
 Must have node and rust installed and functioning
