@@ -6,7 +6,7 @@ This allows flexibility for tokens with supply originating on other chains to be
 
 It does this by taking mint authority for the given canonical token and mints/burns canonical tokens as wrapepd tokens are swapped in/out of the program.
 
-THE MINT AUTHORITY TRANSFER IS A ONE WAY TRANSFER. There is no way to return the mint authority back to the original account. This program is intended to be immutable and has only one safety precaution; whichever account has the authority (see [`set_canonical_swap_authority`](https://github.com/rally-dfs/canonical-swap/blob/v1.0.0/programs/canonical-swap/src/lib.rs#L197) to transfer this authority) can pause or unpause a whitelisted wrapped token. See [pause and unpause here](https://github.com/rally-dfs/canonical-swap/blob/v1.0.0/programs/canonical-swap/src/lib.rs#L181-L194).
+THE MINT AUTHORITY TRANSFER IS A ONE WAY TRANSFER. There is no way to return the mint authority back to the original account. This program is intended to be immutable and has only one safety precaution; whichever account has the authority (see [`set_canonical_swap_authority`](./programs/canonical-swap/src/lib.rs#L197) to transfer this authority) can pause or unpause a whitelisted wrapped token. See [pause and unpause here](./programs/canonical-swap/src/lib.rs#L181-L194).
 
 ## Mainnet deploy
 
@@ -51,7 +51,7 @@ ANCHOR_PROVIDER_URL=url
 
 ### Initialize the Canonical token
 
-set `canonicalMint` to the canonical token mint pubkey, the signer of this tx must have mint authority for this token.
+set [`canonicalMint`](./scripts/init_canonical.ts#L22) to the canonical token mint pubkey, the signer of this tx must have mint authority for this token.
 
 ```sh
 npx ts-node ./scripts/init_canonical.ts
@@ -61,11 +61,11 @@ npx ts-node ./scripts/init_canonical.ts
 
 Signer must be the same as prior step or be the current authority if a new authority has been set
 
-set `canonicalMint` to the same as the above
+set [`canonicalMint`](./scripts/init_wrapped.ts#L26) to the same as the above
 
-set `wrappedMint` to the wrapped token mint you'd like to support
+set [`wrappedMint`](./scripts/init_wrapped.ts#L29) to the wrapped token mint you'd like to support
 
-set `canonicalData` to the key generated and output when running `init_canonical.ts`
+set [`canonicalData`](./scripts/init_wrapped.ts#L32) to the key generated and output when running `init_canonical.ts`
 
 ## Swapping canonical<->Wrapped tokens
 
