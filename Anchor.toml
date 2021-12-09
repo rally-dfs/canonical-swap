@@ -1,11 +1,16 @@
+anchor_version = "0.18.2"
+
+[programs.mainnet]
+canonical_swap = "CNSWAP9TsKjy3Ux1QxptQS2RFAiP5Eucf4odRHueNwzm"
+
 [programs.localnet]
-canonical_swap = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+canonical_swap = "CNSWAP9TsKjy3Ux1QxptQS2RFAiP5Eucf4odRHueNwzm"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "mainnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
