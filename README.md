@@ -33,7 +33,7 @@ yarn build
 Test:
 
 ```sh
-yarn yarn
+yarn test
 ```
 
 ## Setting up a new canonical token and whitelisting wrapped tokens
