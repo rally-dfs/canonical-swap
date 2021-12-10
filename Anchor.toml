@@ -10,7 +10,7 @@ canonical_swap = "CNSWAP9TsKjy3Ux1QxptQS2RFAiP5Eucf4odRHueNwzm"
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "mainnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
