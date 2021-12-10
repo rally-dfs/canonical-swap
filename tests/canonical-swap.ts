@@ -1,4 +1,4 @@
-import chai, { assert } from "chai";
+import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import * as anchor from "@project-serum/anchor";
 import { BN, Program, Provider } from "@project-serum/anchor";
@@ -172,20 +172,19 @@ describe("canonical-swap", () => {
         canonicalData.publicKey
       );
 
-      assert(
-        postTxCanonicalData.authority.equals(canonicalAuthority.publicKey),
-        "authority does not match"
+      expect(postTxCanonicalData.authority.toString()).to.eq(
+        canonicalAuthority.publicKey.toString()
       );
-      assert(
-        postTxCanonicalData.mint.equals(canonicalMint.publicKey),
-        "canonical mint does not match"
+
+      expect(postTxCanonicalData.mint.toString()).to.eq(
+        canonicalMint.publicKey.toString()
       );
+
       expect(postTxCanonicalData.decimals).to.eq(canonicalDecimals);
 
       const mintInfo = await canonicalMint.getMintInfo();
-      assert.ok(
-        mintInfo.mintAuthority.equals(expectedMintAuthorityPDA),
-        "mint authority does not match"
+      expect(mintInfo.mintAuthority.toString()).to.eq(
+        expectedMintAuthorityPDA.toString()
       );
 
       const dataAcctSolBalance = await provider.connection.getBalance(
@@ -198,10 +197,7 @@ describe("canonical-swap", () => {
         canonicalData.publicKey
       );
 
-      assert(
-        dataAcctInfo.owner.equals(canSwap.programId),
-        "data account owner is not program"
-      );
+      expect(dataAcctInfo.owner.toString()).to.eq(canSwap.programId.toString());
     });
   });
 
@@ -211,22 +207,21 @@ describe("canonical-swap", () => {
         wrappedData.publicKey
       );
 
-      assert(
-        postTxWrappedData.canonicalData.equals(canonicalData.publicKey),
-        "1:many canonical data does not match"
+      expect(postTxWrappedData.canonicalData.toString()).to.eq(
+        canonicalData.publicKey.toString()
       );
-      assert(
-        postTxWrappedData.mint.equals(wrappedMint.publicKey),
-        "wrapped mint does not match"
+
+      expect(postTxWrappedData.mint.toString()).to.eq(
+        wrappedMint.publicKey.toString()
       );
+
       expect(postTxWrappedData.decimals).to.eq(wrappedDecimals);
       expect(postTxWrappedData.paused).to.be.false;
 
       const accountInfo = await wrappedMint.getAccountInfo(wrappedTokenAccount);
 
-      assert.ok(
-        accountInfo.owner.equals(wrappedTokenAccountAuthority),
-        "owner is not PDA"
+      expect(accountInfo.owner.toString()).to.eq(
+        wrappedTokenAccountAuthority.toString()
       );
 
       const dataAcctSolBalance = await provider.connection.getBalance(
@@ -239,10 +234,7 @@ describe("canonical-swap", () => {
         wrappedData.publicKey
       );
 
-      assert(
-        dataAcctInfo.owner.equals(canSwap.programId),
-        "data account owner is not program"
-      );
+      expect(dataAcctInfo.owner.toString()).to.eq(canSwap.programId.toString());
     });
   });
 
@@ -307,7 +299,9 @@ describe("canonical-swap", () => {
         }
       );
 
-      await expect(failedSwap).to.eventually.be.rejected;
+      await expect(failedSwap).to.eventually.be.rejectedWith(
+        "143: A raw constraint was violated"
+      );
     });
 
     it("unpauses the wrapped token", async () => {
@@ -356,12 +350,13 @@ describe("canonical-swap", () => {
       const preTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
         destinationTokenAccount
       );
-      assert.ok(preTxDestinationTokenAccount.amount.eq(new BN(0)));
+      expect(preTxDestinationTokenAccount.amount.toNumber()).to.eq(0);
 
       const preTxSourceTokenAccount = await wrappedMint.getAccountInfo(
         sourceTokenAccount
       );
-      assert.ok(preTxSourceTokenAccount.amount.eq(new BN(sourceAmount)));
+
+      expect(preTxSourceTokenAccount.amount.toNumber()).to.eq(sourceAmount);
 
       await canSwap.rpc.swapWrappedForCanonical(
         destinationAmount,
@@ -385,12 +380,14 @@ describe("canonical-swap", () => {
       const postTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
         destinationTokenAccount
       );
-      assert.ok(postTxDestinationTokenAccount.amount.eq(destinationAmount));
+      expect(postTxDestinationTokenAccount.amount.toNumber()).to.eq(
+        destinationAmount.toNumber()
+      );
 
       const postTxSourceTokenAccount = await wrappedMint.getAccountInfo(
         sourceTokenAccount
       );
-      assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
+      expect(postTxSourceTokenAccount.amount.toNumber()).to.eq(0);
     });
 
     it("ensures rounding doesn't benefit the user", async () => {
@@ -407,7 +404,8 @@ describe("canonical-swap", () => {
       const preTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
         destinationTokenAccount
       );
-      assert.ok(preTxDestinationTokenAccount.amount.eq(new BN(0)));
+
+      expect(preTxDestinationTokenAccount.amount.toNumber()).to.eq(0);
 
       await canSwap.rpc.swapWrappedForCanonical(
         destinationAmount,
@@ -431,12 +429,12 @@ describe("canonical-swap", () => {
       const postTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
         destinationTokenAccount
       );
-      assert.ok(postTxDestinationTokenAccount.amount.eq(new BN(0)));
+      expect(postTxDestinationTokenAccount.amount.toNumber()).to.eq(0);
 
       const postTxSourceTokenAccount = await wrappedMint.getAccountInfo(
         sourceTokenAccount
       );
-      assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
+      expect(postTxSourceTokenAccount.amount.toNumber()).to.eq(0);
     });
   });
 
@@ -464,13 +462,14 @@ describe("canonical-swap", () => {
       const preTxDestinationTokenAccount = await wrappedMint.getAccountInfo(
         destinationTokenAccount
       );
-      assert.ok(preTxDestinationTokenAccount.amount.eq(new BN(0)));
+
+      expect(preTxDestinationTokenAccount.amount.toNumber()).to.eq(0);
 
       const preTxSourceTokenAccount = await canonicalMint.getAccountInfo(
         sourceTokenAccount
       );
 
-      assert.ok(preTxSourceTokenAccount.amount.eq(new BN(sourceAmount)));
+      expect(preTxSourceTokenAccount.amount.toNumber()).to.eq(sourceAmount);
 
       await canSwap.rpc.swapCanonicalForWrapped(
         destinationAmount,
@@ -494,12 +493,14 @@ describe("canonical-swap", () => {
       const postTxDestinationTokenAccount = await wrappedMint.getAccountInfo(
         destinationTokenAccount
       );
-      assert.ok(postTxDestinationTokenAccount.amount.eq(destinationAmount));
+      expect(postTxDestinationTokenAccount.amount.toNumber()).to.eq(
+        destinationAmount.toNumber()
+      );
 
       const postTxSourceTokenAccount = await canonicalMint.getAccountInfo(
         sourceTokenAccount
       );
-      assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
+      expect(postTxSourceTokenAccount.amount.toNumber()).to.eq(0);
     });
   });
 
