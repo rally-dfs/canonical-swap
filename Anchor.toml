@@ -1,10 +1,13 @@
 anchor_version = "0.18.2"
 
 [programs.mainnet]
-canonical_swap = "CNSWAP9TsKjy3Ux1QxptQS2RFAiP5Eucf4odRHueNwzm"
+canonical_swap = "CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk"
+
+[programs.devnet]
+canonical_swap = "CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk"
 
 [programs.localnet]
-canonical_swap = "CNSWAP9TsKjy3Ux1QxptQS2RFAiP5Eucf4odRHueNwzm"
+canonical_swap = "CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk"
 
 [registry]
 url = "https://anchor.projectserum.com"
