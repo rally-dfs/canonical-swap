@@ -78,11 +78,13 @@ pub mod canonical_swap {
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
 
         let mut wrapped_amount = canonical_amount;
+        let mut calculated_canonical_amount = canonical_amount;
 
         if canonical_decimals > wrapped_decimals {
             let decimal_diff = canonical_decimals - wrapped_decimals;
             let conversion_factor = 10u64.pow(decimal_diff);
             wrapped_amount = canonical_amount / conversion_factor;
+            calculated_canonical_amount = wrapped_amount * conversion_factor;
         } else if canonical_decimals < wrapped_decimals {
             let decimal_diff = wrapped_decimals - canonical_decimals;
             let conversion_factor = 10u64.pow(decimal_diff);
@@ -115,7 +117,10 @@ pub mod canonical_swap {
         ];
 
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
-        token::mint_to(cpi_ctx.with_signer(&[authority_seeds]), canonical_amount)?;
+        token::mint_to(
+            cpi_ctx.with_signer(&[authority_seeds]),
+            calculated_canonical_amount,
+        )?;
         Ok(())
     }
 
@@ -131,6 +136,7 @@ pub mod canonical_swap {
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
 
         let mut canonical_amount = wrapped_amount;
+        let mut calculated_wrapped_amount = wrapped_amount;
 
         if canonical_decimals > wrapped_decimals {
             let decimal_diff = canonical_decimals - wrapped_decimals;
@@ -140,6 +146,7 @@ pub mod canonical_swap {
             let decimal_diff = wrapped_decimals - canonical_decimals;
             let conversion_factor = 10u64.pow(decimal_diff);
             canonical_amount = wrapped_amount / conversion_factor;
+            calculated_wrapped_amount = canonical_amount * conversion_factor;
         }
 
         // Burn tokens from users canonical supply
@@ -172,7 +179,10 @@ pub mod canonical_swap {
             &[wrapped_token_account_authority_bump],
         ];
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
-        token::transfer(cpi_ctx.with_signer(&[authority_seeds]), wrapped_amount)?;
+        token::transfer(
+            cpi_ctx.with_signer(&[authority_seeds]),
+            calculated_wrapped_amount,
+        )?;
 
         Ok(())
     }

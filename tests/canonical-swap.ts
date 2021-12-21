@@ -392,6 +392,52 @@ describe("canonical-swap", () => {
       );
       assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
     });
+
+    it("ensures rounding doesn't benefit the user", async () => {
+      const destinationTokenAccount = await canonicalMint.createAccount(
+        wallet.publicKey
+      );
+
+      const sourceTokenAccount = await wrappedMint.createAccount(
+        wallet.publicKey
+      );
+
+      const destinationAmount = new BN(1);
+
+      const preTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
+        destinationTokenAccount
+      );
+      assert.ok(preTxDestinationTokenAccount.amount.eq(new BN(0)));
+
+      await canSwap.rpc.swapWrappedForCanonical(
+        destinationAmount,
+        expectedMintAuthorityBump,
+        {
+          accounts: {
+            user: wallet.publicKey,
+            destinationCanonicalTokenAccount: destinationTokenAccount,
+            canonicalMint: canonicalMint.publicKey,
+            pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
+            sourceWrappedTokenAccount: sourceTokenAccount,
+            wrappedTokenAccount,
+            canonicalData: canonicalData.publicKey,
+            wrappedData: wrappedData.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          },
+          signers: [wallet.payer],
+        }
+      );
+
+      const postTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
+        destinationTokenAccount
+      );
+      assert.ok(postTxDestinationTokenAccount.amount.eq(new BN(0)));
+
+      const postTxSourceTokenAccount = await wrappedMint.getAccountInfo(
+        sourceTokenAccount
+      );
+      assert.ok(postTxSourceTokenAccount.amount.eq(new BN(0)));
+    });
   });
 
   describe("#swap_canonical_for_wrapped", () => {
