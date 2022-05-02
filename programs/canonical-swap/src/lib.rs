@@ -72,6 +72,7 @@ pub mod canonical_swap {
         ctx: Context<SwapWrappedForCanonical>,
         canonical_amount: u64,
         canonical_mint_authority_bump: u8,
+        _wrapped_token_account_bump: u8,
     ) -> ProgramResult {
         // Determine decimal conversion
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
@@ -299,7 +300,7 @@ pub struct InitializeWrappedToken<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(canonical_amount: u64, canonical_mint_authority_bump: u8)]
+#[instruction(canonical_amount: u64, canonical_mint_authority_bump: u8, wrapped_token_account_bump: u8)]
 pub struct SwapWrappedForCanonical<'info> {
     // Any end user wanting to swap tokens
     pub user: Signer<'info>,
@@ -311,6 +312,9 @@ pub struct SwapWrappedForCanonical<'info> {
     // Canonical mint account
     #[account(mut)]
     pub canonical_mint: Account<'info, Mint>,
+
+    // Wrapped token mint account
+    pub wrapped_token_mint: Account<'info, Mint>,
 
     // PDA having  mint authority
     #[account(
@@ -327,7 +331,15 @@ pub struct SwapWrappedForCanonical<'info> {
     pub source_wrapped_token_account: Account<'info, TokenAccount>,
 
     // The PDA token account to transfer wrapped tokens to
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [
+            WRAPPED_TOKEN_ACCOUNT_PDA_SEED.as_ref(),
+            canonical_data.mint.as_ref(),
+            wrapped_token_mint.to_account_info().key.as_ref()
+        ],
+        bump = wrapped_token_account_bump,
+    )]
     pub wrapped_token_account: Account<'info, TokenAccount>,
 
     #[account(
