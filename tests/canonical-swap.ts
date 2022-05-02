@@ -283,11 +283,13 @@ describe("canonical-swap", () => {
       const failedSwap = canSwap.rpc.swapWrappedForCanonical(
         destinationAmount,
         expectedMintAuthorityBump,
+        wrappedTokenAccountBump,
         {
           accounts: {
             user: wallet.publicKey,
             destinationCanonicalTokenAccount: destinationTokenAccount,
             canonicalMint: canonicalMint.publicKey,
+            wrappedTokenMint: wrappedMint.publicKey,
             pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
             sourceWrappedTokenAccount: sourceTokenAccount,
             wrappedTokenAccount,
@@ -328,6 +330,73 @@ describe("canonical-swap", () => {
   });
 
   describe("#swap_wrapped_for_canonical", () => {
+    it("destination token account must be a valid PDA", async () => {
+      const destinationTokenAccount = await canonicalMint.createAccount(
+        wallet.publicKey
+      );
+
+      const sourceTokenAccount = await wrappedMint.createAccount(
+        wallet.publicKey
+      );
+
+      const destinationAmount = new BN(100);
+      const sourceAmount = destinationAmount.toNumber() / 10;
+
+      await wrappedMint.mintTo(
+        sourceTokenAccount,
+        canonicalAuthority.publicKey,
+        [canonicalAuthority],
+        sourceAmount
+      );
+
+      const preTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
+        destinationTokenAccount
+      );
+      expect(preTxDestinationTokenAccount.amount.toNumber()).to.eq(0);
+
+      const preTxSourceTokenAccount = await wrappedMint.getAccountInfo(
+        sourceTokenAccount
+      );
+
+      expect(preTxSourceTokenAccount.amount.toNumber()).to.eq(sourceAmount);
+
+      const failedSwap = canSwap.rpc.swapWrappedForCanonical(
+        destinationAmount,
+        expectedMintAuthorityBump,
+        wrappedTokenAccountBump,
+        {
+          accounts: {
+            user: wallet.publicKey,
+            destinationCanonicalTokenAccount: destinationTokenAccount,
+            canonicalMint: canonicalMint.publicKey,
+            wrappedTokenMint: wrappedMint.publicKey,
+            pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
+            sourceWrappedTokenAccount: sourceTokenAccount,
+            wrappedTokenAccount: sourceTokenAccount,
+            canonicalData: canonicalData.publicKey,
+            wrappedData: wrappedData.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          },
+          signers: [wallet.payer],
+        }
+      );
+
+      await expect(failedSwap).to.eventually.be.rejectedWith(
+        "146: A seeds constraint was violated"
+      );
+
+      const postTxDestinationTokenAccount = await canonicalMint.getAccountInfo(
+        destinationTokenAccount
+      );
+      expect(postTxDestinationTokenAccount.amount.toNumber()).to.eq(0);
+
+      const postTxSourceTokenAccount = await wrappedMint.getAccountInfo(
+        sourceTokenAccount
+      );
+
+      expect(postTxSourceTokenAccount.amount.toNumber()).to.eq(sourceAmount);
+    });
+
     it("takes wrapped from source and mints canonical into destination", async () => {
       const destinationTokenAccount = await canonicalMint.createAccount(
         wallet.publicKey
@@ -361,11 +430,13 @@ describe("canonical-swap", () => {
       await canSwap.rpc.swapWrappedForCanonical(
         destinationAmount,
         expectedMintAuthorityBump,
+        wrappedTokenAccountBump,
         {
           accounts: {
             user: wallet.publicKey,
             destinationCanonicalTokenAccount: destinationTokenAccount,
             canonicalMint: canonicalMint.publicKey,
+            wrappedTokenMint: wrappedMint.publicKey,
             pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
             sourceWrappedTokenAccount: sourceTokenAccount,
             wrappedTokenAccount,
@@ -410,11 +481,13 @@ describe("canonical-swap", () => {
       await canSwap.rpc.swapWrappedForCanonical(
         destinationAmount,
         expectedMintAuthorityBump,
+        wrappedTokenAccountBump,
         {
           accounts: {
             user: wallet.publicKey,
             destinationCanonicalTokenAccount: destinationTokenAccount,
             canonicalMint: canonicalMint.publicKey,
+            wrappedTokenMint: wrappedMint.publicKey,
             pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
             sourceWrappedTokenAccount: sourceTokenAccount,
             wrappedTokenAccount,
