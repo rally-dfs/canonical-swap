@@ -297,7 +297,7 @@ pub struct SwapWrappedForCanonical<'info> {
 
     // Token account for resulting canonical tokens
     #[account(mut)]
-    pub destination_canonical_token_account: Account<'info, TokenAccount>,
+    pub destination_canonical_token_account: Box<Account<'info, TokenAccount>>,
 
     // Canonical mint account
     #[account(mut)]
@@ -331,7 +331,7 @@ pub struct SwapWrappedForCanonical<'info> {
         ],
         bump,
     )]
-    pub wrapped_token_account: Account<'info, TokenAccount>,
+    pub wrapped_token_account: Box<Account<'info, TokenAccount>>,
 
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
@@ -358,19 +358,19 @@ pub struct SwapCanonicalForWrapped<'info> {
 
     // Token account for resulting canonical tokens
     #[account(mut)]
-    pub source_canonical_token_account: Account<'info, TokenAccount>,
+    pub source_canonical_token_account: Box<Account<'info, TokenAccount>>,
 
     // Canonical mint account
     #[account(mut)]
-    pub canonical_mint: Account<'info, Mint>,
+    pub canonical_mint: Box<Account<'info, Mint>>,
 
     // The user owned token account to transfer wrapped tokens to
     #[account(mut)]
-    pub destination_wrapped_token_account: Account<'info, TokenAccount>,
+    pub destination_wrapped_token_account: Box<Account<'info, TokenAccount>>,
 
     // The PDA token account to transfer wrapped tokens from
     #[account(mut)]
-    pub wrapped_token_account: Account<'info, TokenAccount>,
+    pub wrapped_token_account: Box<Account<'info, TokenAccount>>,
 
     // PDA owning the wrapped token account
     #[account(
