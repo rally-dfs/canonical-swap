@@ -1,4 +1,4 @@
-anchor_version = "0.18.2"
+anchor_version = "0.24.2"
 
 [programs.mainnet]
 canonical_swap = "CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk"

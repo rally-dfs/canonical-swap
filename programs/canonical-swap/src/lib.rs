@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Burn, Mint, MintTo, SetAuthority, TokenAccount, Transfer};
+use anchor_spl::token::{self, Burn, Mint, MintTo, SetAuthority, Token, TokenAccount, Transfer};
 use spl_token::instruction::AuthorityType;
 declare_id!("CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk");
 
@@ -8,14 +8,11 @@ const WRAPPED_TOKEN_ACCOUNT_PDA_SEED: &[u8] = b"token_account_seed";
 const WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED: &[u8] = b"wrapped_acct_authority";
 
 #[program]
-pub mod canonical_swap {
+mod canonical_swap {
     use super::*;
 
     /// Initialize a canonical token and transfer mint authority over to a PDA
-    pub fn initialize_canonical_token(
-        ctx: Context<InitializeCanonicalToken>,
-        _canonical_mint_authority_bump: u8,
-    ) -> ProgramResult {
+    pub fn initialize_canonical_token(ctx: Context<InitializeCanonicalToken>) -> Result<()> {
         // Set canonical token data
         let canonical_data = &mut ctx.accounts.canonical_data;
         canonical_data.authority = *ctx.accounts.initializer.key;
@@ -38,11 +35,7 @@ pub mod canonical_swap {
     }
 
     /// Initialize a wrapped token paired to a canonical token
-    pub fn initialize_wrapped_token(
-        ctx: Context<InitializeWrappedToken>,
-        _wrapped_token_account_bump: u8,
-        _wrapped_token_account_authority_bump: u8,
-    ) -> ProgramResult {
+    pub fn initialize_wrapped_token(ctx: Context<InitializeWrappedToken>) -> Result<()> {
         // Set wrapped token data
         let wrapped_data = &mut ctx.accounts.wrapped_data;
 
@@ -72,8 +65,7 @@ pub mod canonical_swap {
         ctx: Context<SwapWrappedForCanonical>,
         canonical_amount: u64,
         canonical_mint_authority_bump: u8,
-        _wrapped_token_account_bump: u8,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         // Determine decimal conversion
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
@@ -131,7 +123,7 @@ pub mod canonical_swap {
         ctx: Context<SwapCanonicalForWrapped>,
         wrapped_amount: u64,
         wrapped_token_account_authority_bump: u8,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         // Determine decimal conversion
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
         let canonical_decimals = ctx.accounts.canonical_data.decimals as u32;
@@ -152,7 +144,7 @@ pub mod canonical_swap {
 
         // Burn tokens from users canonical supply
         let cpi_accounts = Burn {
-            to: ctx
+            from: ctx
                 .accounts
                 .source_canonical_token_account
                 .to_account_info(),
@@ -189,7 +181,7 @@ pub mod canonical_swap {
     }
 
     /// Pause wrapped token to disallow any swaps in case of a bridge exploit
-    pub fn pause_wrapped_token(ctx: Context<PauseWrappedToken>) -> ProgramResult {
+    pub fn pause_wrapped_token(ctx: Context<PauseWrappedToken>) -> Result<()> {
         let wrapped_data = &mut ctx.accounts.wrapped_data;
         wrapped_data.paused = true;
 
@@ -197,7 +189,7 @@ pub mod canonical_swap {
     }
 
     /// Unpause wrapped token to resume allowing swaps
-    pub fn unpause_wrapped_token(ctx: Context<UnpauseWrappedToken>) -> ProgramResult {
+    pub fn unpause_wrapped_token(ctx: Context<UnpauseWrappedToken>) -> Result<()> {
         let wrapped_data = &mut ctx.accounts.wrapped_data;
         wrapped_data.paused = false;
 
@@ -205,7 +197,7 @@ pub mod canonical_swap {
     }
 
     /// Set authority for adding wrapped token for given canonical token
-    pub fn set_canonical_swap_authority(ctx: Context<SetCanonicalSwapAuthority>) -> ProgramResult {
+    pub fn set_canonical_swap_authority(ctx: Context<SetCanonicalSwapAuthority>) -> Result<()> {
         let canonical_data = &mut ctx.accounts.canonical_data;
         canonical_data.authority = *ctx.accounts.new_authority.key;
 
@@ -214,7 +206,6 @@ pub mod canonical_swap {
 }
 
 #[derive(Accounts)]
-#[instruction(canonical_mint_authority_bump: u8)]
 pub struct InitializeCanonicalToken<'info> {
     // must have minting authority for canonical token
     pub initializer: Signer<'info>,
@@ -231,22 +222,21 @@ pub struct InitializeCanonicalToken<'info> {
             CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref(),
             canonical_mint.to_account_info().key.as_ref()
         ],
-        bump = canonical_mint_authority_bump,
+        bump,
     )]
-    pub pda_canonical_mint_authority: AccountInfo<'info>,
+    /// CHECK: seeds are checked
+    pub pda_canonical_mint_authority: UncheckedAccount<'info>,
 
     // Data account holding information about the
     // canonical token
     #[account(zero)]
     pub canonical_data: Account<'info, CanonicalData>,
 
-    #[account(address = token::ID)]
-    pub token_program: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(wrapped_token_account_bump: u8, wrapped_token_account_authority_bump: u8)]
 pub struct InitializeWrappedToken<'info> {
     #[account(mut)]
     pub current_authority: Signer<'info>,
@@ -262,7 +252,7 @@ pub struct InitializeWrappedToken<'info> {
             canonical_data.mint.as_ref(),
             wrapped_token_mint.to_account_info().key.as_ref()
         ],
-        bump = wrapped_token_account_bump,
+        bump,
         payer = current_authority,
         token::mint = wrapped_token_mint,
         token::authority = current_authority,
@@ -276,9 +266,10 @@ pub struct InitializeWrappedToken<'info> {
             canonical_data.mint.as_ref(),
             wrapped_token_mint.to_account_info().key.as_ref()
         ],
-        bump = wrapped_token_account_authority_bump,
+        bump,
     )]
-    pub pda_wrapped_token_account_authority: AccountInfo<'info>,
+    /// CHECK: seeds are checked
+    pub pda_wrapped_token_account_authority: UncheckedAccount<'info>,
 
     // Data account holding information about the
     // canonical token
@@ -293,28 +284,27 @@ pub struct InitializeWrappedToken<'info> {
     #[account(zero)]
     pub wrapped_data: Account<'info, WrappedData>,
 
-    #[account(address = token::ID)]
-    pub token_program: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]
-#[instruction(canonical_amount: u64, canonical_mint_authority_bump: u8, wrapped_token_account_bump: u8)]
+#[instruction(canonical_amount: u64, canonical_mint_authority_bump: u8)]
 pub struct SwapWrappedForCanonical<'info> {
     // Any end user wanting to swap tokens
     pub user: Signer<'info>,
 
     // Token account for resulting canonical tokens
     #[account(mut)]
-    pub destination_canonical_token_account: Account<'info, TokenAccount>,
+    pub destination_canonical_token_account: Box<Account<'info, TokenAccount>>,
 
     // Canonical mint account
     #[account(mut)]
-    pub canonical_mint: Account<'info, Mint>,
+    pub canonical_mint: Box<Account<'info, Mint>>,
 
     // Wrapped token mint account
-    pub wrapped_token_mint: Account<'info, Mint>,
+    pub wrapped_token_mint: Box<Account<'info, Mint>>,
 
     // PDA having  mint authority
     #[account(
@@ -322,13 +312,14 @@ pub struct SwapWrappedForCanonical<'info> {
             CANONICAL_MINT_AUTHORITY_PDA_SEED.as_ref(),
             canonical_mint.to_account_info().key.as_ref()
         ],
-        bump = canonical_mint_authority_bump,
+        bump,
     )]
-    pub pda_canonical_mint_authority: AccountInfo<'info>,
+    /// CHECK: seeds are checked
+    pub pda_canonical_mint_authority: UncheckedAccount<'info>,
 
     // The user owned token account transfer wrapped tokens from
     #[account(mut)]
-    pub source_wrapped_token_account: Account<'info, TokenAccount>,
+    pub source_wrapped_token_account: Box<Account<'info, TokenAccount>>,
 
     // The PDA token account to transfer wrapped tokens to
     #[account(
@@ -338,9 +329,9 @@ pub struct SwapWrappedForCanonical<'info> {
             canonical_data.mint.as_ref(),
             wrapped_token_mint.to_account_info().key.as_ref()
         ],
-        bump = wrapped_token_account_bump,
+        bump,
     )]
-    pub wrapped_token_account: Account<'info, TokenAccount>,
+    pub wrapped_token_account: Box<Account<'info, TokenAccount>>,
 
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
@@ -356,8 +347,7 @@ pub struct SwapWrappedForCanonical<'info> {
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 
-    #[account(address = token::ID)]
-    pub token_program: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -368,19 +358,19 @@ pub struct SwapCanonicalForWrapped<'info> {
 
     // Token account for resulting canonical tokens
     #[account(mut)]
-    pub source_canonical_token_account: Account<'info, TokenAccount>,
+    pub source_canonical_token_account: Box<Account<'info, TokenAccount>>,
 
     // Canonical mint account
     #[account(mut)]
-    pub canonical_mint: Account<'info, Mint>,
+    pub canonical_mint: Box<Account<'info, Mint>>,
 
     // The user owned token account to transfer wrapped tokens to
     #[account(mut)]
-    pub destination_wrapped_token_account: Account<'info, TokenAccount>,
+    pub destination_wrapped_token_account: Box<Account<'info, TokenAccount>>,
 
     // The PDA token account to transfer wrapped tokens from
     #[account(mut)]
-    pub wrapped_token_account: Account<'info, TokenAccount>,
+    pub wrapped_token_account: Box<Account<'info, TokenAccount>>,
 
     // PDA owning the wrapped token account
     #[account(
@@ -389,9 +379,10 @@ pub struct SwapCanonicalForWrapped<'info> {
             canonical_data.mint.as_ref(),
             wrapped_data.mint.as_ref()
         ],
-        bump = wrapped_token_account_authority_bump,
+        bump,
     )]
-    pub pda_wrapped_token_authority: AccountInfo<'info>,
+    /// CHECK: seeds are checked
+    pub pda_wrapped_token_authority: UncheckedAccount<'info>,
 
     #[account(
         constraint = canonical_data.mint == *canonical_mint.to_account_info().key,
@@ -407,8 +398,7 @@ pub struct SwapCanonicalForWrapped<'info> {
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 
-    #[account(address = token::ID)]
-    pub token_program: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -455,7 +445,8 @@ pub struct SetCanonicalSwapAuthority<'info> {
     pub current_authority: Signer<'info>,
 
     // New authority to set `canonical_data.authority` to
-    pub new_authority: AccountInfo<'info>,
+    /// CHECK: new authority can be any account
+    pub new_authority: UncheckedAccount<'info>,
 
     // Data account holding information about the
     // canonical token will be closed and rent returned

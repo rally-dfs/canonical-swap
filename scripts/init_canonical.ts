@@ -1,8 +1,7 @@
 import {
+  AnchorProvider,
   Program,
-  Provider,
   setProvider,
-  utils as anchorUtils,
   Wallet,
 } from "@project-serum/anchor";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
@@ -23,7 +22,7 @@ const canonicalMint = new PublicKey("");
 
 const main = async () => {
   // Configure the client to use the local cluster.
-  const provider = Provider.env();
+  const provider = AnchorProvider.env();
   setProvider(provider);
   const wallet = provider.wallet as Wallet;
 
@@ -42,32 +41,29 @@ const main = async () => {
     canonicalData.publicKey.toString()
   );
 
-  const [expectedMintAuthorityPDA, expectedMintAuthorityBump] =
-    await PublicKey.findProgramAddress(
-      [CANONICAL_MINT_AUTHORITY_PDA_SEED, canonicalMint.toBuffer()],
-      canSwap.programId
-    );
-
-  const tx = await canSwap.rpc.initializeCanonicalToken(
-    expectedMintAuthorityBump,
-    {
-      accounts: {
-        initializer: canonicalAuthority.publicKey,
-        canonicalMint: canonicalMint,
-        pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
-        canonicalData: canonicalData.publicKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-      },
-      instructions: [
-        await canSwap.account.canonicalData.createInstruction(
-          canonicalData,
-          8 + 65
-        ),
-      ],
-      signers: [canonicalData, canonicalAuthority],
-    }
+  const [expectedMintAuthorityPDA] = await PublicKey.findProgramAddress(
+    [CANONICAL_MINT_AUTHORITY_PDA_SEED, canonicalMint.toBuffer()],
+    canSwap.programId
   );
+
+  const tx = await canSwap.methods
+    .initializeCanonicalToken()
+    .accounts({
+      initializer: canonicalAuthority.publicKey,
+      canonicalMint: canonicalMint,
+      pdaCanonicalMintAuthority: expectedMintAuthorityPDA,
+      canonicalData: canonicalData.publicKey,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .preInstructions([
+      await canSwap.account.canonicalData.createInstruction(
+        canonicalData,
+        8 + 65
+      ),
+    ])
+    .signers([canonicalData, canonicalAuthority])
+    .rpc();
 
   console.log(tx);
 };
