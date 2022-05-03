@@ -1,12 +1,16 @@
 import {
+  AnchorProvider,
   Program,
-  Provider,
   setProvider,
-  utils as anchorUtils,
   Wallet,
   web3,
 } from "@project-serum/anchor";
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  SYSVAR_RENT_PUBKEY,
+} from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   CANONICAL_SWAP_PROGRAM_ID,
@@ -33,7 +37,7 @@ const canonicalData = new PublicKey("");
 
 const main = async () => {
   // Configure the client to use the local cluster.
-  const provider = Provider.env();
+  const provider = AnchorProvider.env();
   setProvider(provider);
   const wallet = provider.wallet as Wallet;
 
@@ -52,46 +56,38 @@ const main = async () => {
     wrappedData.publicKey.toString()
   );
 
-  const [wrappedTokenAccount, wrappedTokenAccountBump] =
-    await PublicKey.findProgramAddress(
-      [TOKEN_ACCOUNT_SEED, canonicalMint.toBuffer(), wrappedMint.toBuffer()],
-      canSwap.programId
-    );
-
-  const [wrappedTokenAccountAuthority, wrappedTokenAccountAuthorityBump] =
-    await PublicKey.findProgramAddress(
-      [
-        WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
-        canonicalMint.toBuffer(),
-        wrappedMint.toBuffer(),
-      ],
-      canSwap.programId
-    );
-
-  const tx = await canSwap.rpc.initializeWrappedToken(
-    wrappedTokenAccountBump,
-    wrappedTokenAccountAuthorityBump,
-    {
-      accounts: {
-        currentAuthority: canonicalAuthority.publicKey,
-        wrappedTokenMint: wrappedMint,
-        pdaWrappedTokenAccount: wrappedTokenAccount,
-        pdaWrappedTokenAccountAuthority: wrappedTokenAccountAuthority,
-        canonicalData: canonicalData,
-        wrappedData: wrappedData.publicKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        rent: web3.SYSVAR_RENT_PUBKEY,
-        systemProgram: SystemProgram.programId,
-      },
-      instructions: [
-        await canSwap.account.wrappedData.createInstruction(
-          wrappedData,
-          8 + 66
-        ),
-      ],
-      signers: [wrappedData, canonicalAuthority],
-    }
+  const [wrappedTokenAccount] = await PublicKey.findProgramAddress(
+    [TOKEN_ACCOUNT_SEED, canonicalMint.toBuffer(), wrappedMint.toBuffer()],
+    canSwap.programId
   );
+
+  const [wrappedTokenAccountAuthority] = await PublicKey.findProgramAddress(
+    [
+      WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+      canonicalMint.toBuffer(),
+      wrappedMint.toBuffer(),
+    ],
+    canSwap.programId
+  );
+
+  const tx = await canSwap.methods
+    .initializeWrappedToken()
+    .accounts({
+      currentAuthority: canonicalAuthority.publicKey,
+      wrappedTokenMint: wrappedMint,
+      pdaWrappedTokenAccount: wrappedTokenAccount,
+      pdaWrappedTokenAccountAuthority: wrappedTokenAccountAuthority,
+      canonicalData: canonicalData,
+      wrappedData: wrappedData.publicKey,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      rent: SYSVAR_RENT_PUBKEY,
+      systemProgram: SystemProgram.programId,
+    })
+    .preInstructions([
+      await canSwap.account.wrappedData.createInstruction(wrappedData, 8 + 66),
+    ])
+    .signers([wrappedData, canonicalAuthority])
+    .rpc();
 
   console.log(tx);
 };

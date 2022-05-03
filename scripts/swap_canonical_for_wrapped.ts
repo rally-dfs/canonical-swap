@@ -1,9 +1,8 @@
 import {
+  AnchorProvider,
   BN,
   Program,
-  Provider,
   setProvider,
-  utils as anchorUtils,
   Wallet,
 } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js";
@@ -47,7 +46,7 @@ const destinationTokenAccount = new PublicKey("");
 
 const main = async () => {
   // Read info from from env
-  const provider = Provider.env();
+  const provider = AnchorProvider.env();
   setProvider(provider);
   const wallet = provider.wallet as Wallet;
 
@@ -57,12 +56,6 @@ const main = async () => {
     CANONICAL_SWAP_PROGRAM_ID,
     provider
   ) as Program<CanonicalSwap>;
-
-  const [expectedMintAuthorityPDA, expectedMintAuthorityBump] =
-    await PublicKey.findProgramAddress(
-      [CANONICAL_MINT_AUTHORITY_PDA_SEED, canonicalMint.toBuffer()],
-      canSwap.programId
-    );
 
   const [wrappedTokenAccount] = await PublicKey.findProgramAddress(
     [TOKEN_ACCOUNT_SEED, canonicalMint.toBuffer(), wrappedMint.toBuffer()],
@@ -79,24 +72,24 @@ const main = async () => {
       canSwap.programId
     );
 
-  const tx = await canSwap.rpc.swapCanonicalForWrapped(
-    destinationAmount,
-    wrappedTokenAccountAuthorityBump,
-    {
-      accounts: {
-        user: wallet.publicKey,
-        sourceCanonicalTokenAccount: sourceTokenAccount,
-        canonicalMint: canonicalMint,
-        destinationWrappedTokenAccount: destinationTokenAccount,
-        wrappedTokenAccount,
-        pdaWrappedTokenAuthority: wrappedTokenAccountAuthority,
-        canonicalData: canonicalData,
-        wrappedData: wrappedData,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      },
-      signers: [wallet.payer],
-    }
-  );
+  const tx = await canSwap.methods
+    .swapCanonicalForWrapped(
+      destinationAmount,
+      wrappedTokenAccountAuthorityBump
+    )
+    .accounts({
+      user: wallet.publicKey,
+      sourceCanonicalTokenAccount: sourceTokenAccount,
+      canonicalMint: canonicalMint,
+      destinationWrappedTokenAccount: destinationTokenAccount,
+      wrappedTokenAccount,
+      pdaWrappedTokenAuthority: wrappedTokenAccountAuthority,
+      canonicalData: canonicalData,
+      wrappedData: wrappedData,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .signers([wallet.payer])
+    .rpc();
 
   console.log(tx);
 };
