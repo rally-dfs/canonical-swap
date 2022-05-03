@@ -1,0 +1,13 @@
+name: Standard React CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ci.Dockerfile
+
+    steps:
+    - name: Run Test Suite
+      run: yarn test
