@@ -173,7 +173,7 @@ describe("canonical-swap", () => {
       .preInstructions([
         await canSwap.account.wrappedData.createInstruction(
           wrappedData,
-          8 + 66
+          8 + 67
         ),
       ])
       .signers([wrappedData, canonicalAuthority])
@@ -229,7 +229,8 @@ describe("canonical-swap", () => {
       expect(postTxWrappedData.mint.toString()).to.eq(wrappedMint.toString());
 
       expect(postTxWrappedData.decimals).to.eq(wrappedDecimals);
-      expect(postTxWrappedData.paused).to.be.false;
+      expect(postTxWrappedData.swapWrappedForCanonicalEnabled).to.be.true;
+      expect(postTxWrappedData.swapCanonicalForWrappedEnabled).to.be.true;
 
       const accountInfo = await getAccount(
         provider.connection,
@@ -254,15 +255,15 @@ describe("canonical-swap", () => {
     });
   });
 
-  describe("#pausing", () => {
-    it("pauses the wrapped token", async () => {
+  describe("#swapCanonicalForWrappedEnabled", () => {
+    it("disables swapCanonicalForWrapped", async () => {
       const preTxWrappedData = await canSwap.account.wrappedData.fetch(
         wrappedData.publicKey
       );
-      expect(preTxWrappedData.paused).to.be.false;
+      expect(preTxWrappedData.swapCanonicalForWrappedEnabled).to.be.true;
 
       await canSwap.methods
-        .pauseWrappedToken()
+        .disableWrappedToken(false)
         .accounts({
           currentAuthority: canonicalAuthority.publicKey,
           canonicalData: canonicalData.publicKey,
@@ -275,10 +276,111 @@ describe("canonical-swap", () => {
         wrappedData.publicKey
       );
 
-      expect(postTxWrappedData.paused).to.be.true;
+      expect(postTxWrappedData.swapCanonicalForWrappedEnabled).to.be.false;
     });
 
-    it("fails swap when paused", async () => {
+    it("fails swap when disabled", async () => {
+      const sourceTokenAccount = await createAccount(
+        provider.connection,
+        wallet.payer,
+        canonicalMint,
+        wallet.publicKey,
+        Keypair.generate()
+      );
+
+      const destinationTokenAccount = await createAccount(
+        provider.connection,
+        wallet.payer,
+        wrappedMint,
+        wallet.publicKey,
+        Keypair.generate()
+      );
+
+      const destinationAmount = BigInt(10);
+      const sourceAmount = destinationAmount * BigInt(10);
+
+      await transfer(
+        provider.connection,
+        wallet.payer,
+        tokenDistributorTokenAccount,
+        sourceTokenAccount,
+        wallet.publicKey,
+        sourceAmount
+      );
+
+      const failedSwap = canSwap.methods
+        .swapCanonicalForWrapped(
+          new BN(destinationAmount),
+          wrappedTokenAccountAuthorityBump
+        )
+        .accounts({
+          user: wallet.publicKey,
+          sourceCanonicalTokenAccount: sourceTokenAccount,
+          canonicalMint: canonicalMint,
+          destinationWrappedTokenAccount: destinationTokenAccount,
+          wrappedTokenAccount,
+          pdaWrappedTokenAuthority: wrappedTokenAccountAuthority,
+          canonicalData: canonicalData.publicKey,
+          wrappedData: wrappedData.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([wallet.payer])
+        .rpc();
+
+      await expect(failedSwap).to.eventually.be.rejectedWith(
+        "AnchorError caused by account: wrapped_data. Error Code: ConstraintRaw. Error Number: 2003. Error Message: A raw constraint was violated."
+      );
+    });
+
+    it("enables the wrapped token", async () => {
+      const preTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+      expect(preTxWrappedData.swapCanonicalForWrappedEnabled).to.be.false;
+
+      await canSwap.methods
+        .enableWrappedToken(false)
+        .accounts({
+          currentAuthority: canonicalAuthority.publicKey,
+          canonicalData: canonicalData.publicKey,
+          wrappedData: wrappedData.publicKey,
+        })
+        .signers([canonicalAuthority])
+        .rpc();
+
+      const postTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+
+      expect(postTxWrappedData.swapCanonicalForWrappedEnabled).to.be.true;
+    });
+  });
+
+  describe("#swapWrappedForCanonicalEnabled", () => {
+    it("disables swapWrappedForCanonical", async () => {
+      const preTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+      expect(preTxWrappedData.swapWrappedForCanonicalEnabled).to.be.true;
+
+      await canSwap.methods
+        .disableWrappedToken(true)
+        .accounts({
+          currentAuthority: canonicalAuthority.publicKey,
+          canonicalData: canonicalData.publicKey,
+          wrappedData: wrappedData.publicKey,
+        })
+        .signers([canonicalAuthority])
+        .rpc();
+
+      const postTxWrappedData = await canSwap.account.wrappedData.fetch(
+        wrappedData.publicKey
+      );
+
+      expect(postTxWrappedData.swapWrappedForCanonicalEnabled).to.be.false;
+    });
+
+    it("fails swap when disabled", async () => {
       const destinationTokenAccount = await createAccount(
         provider.connection,
         wallet.payer,
@@ -332,14 +434,14 @@ describe("canonical-swap", () => {
       );
     });
 
-    it("unpauses the wrapped token", async () => {
+    it("enables the wrapped token", async () => {
       const preTxWrappedData = await canSwap.account.wrappedData.fetch(
         wrappedData.publicKey
       );
-      expect(preTxWrappedData.paused).to.be.true;
+      expect(preTxWrappedData.swapWrappedForCanonicalEnabled).to.be.false;
 
       await canSwap.methods
-        .unpauseWrappedToken()
+        .enableWrappedToken(true)
         .accounts({
           currentAuthority: canonicalAuthority.publicKey,
           canonicalData: canonicalData.publicKey,
@@ -352,7 +454,7 @@ describe("canonical-swap", () => {
         wrappedData.publicKey
       );
 
-      expect(postTxWrappedData.paused).to.be.false;
+      expect(postTxWrappedData.swapWrappedForCanonicalEnabled).to.be.true;
     });
   });
 
