@@ -290,7 +290,7 @@ describe("canonical-swap", () => {
       const sourceTokenAccount = await createAccount(
         provider.connection,
         wallet.payer,
-        canonicalMint,
+        wrappedMint,
         wallet.publicKey,
         Keypair.generate()
       );
@@ -301,7 +301,7 @@ describe("canonical-swap", () => {
       await mintTo(
         provider.connection,
         canonicalAuthority,
-        canonicalMint,
+        wrappedMint,
         sourceTokenAccount,
         canonicalAuthority.publicKey,
         sourceAmount
@@ -328,7 +328,7 @@ describe("canonical-swap", () => {
         .rpc();
 
       await expect(failedSwap).to.eventually.be.rejectedWith(
-        "143: A raw constraint was violated"
+        "AnchorError caused by account: wrapped_data. Error Code: ConstraintRaw. Error Number: 2003. Error Message: A raw constraint was violated."
       );
     });
 
@@ -369,7 +369,7 @@ describe("canonical-swap", () => {
       const sourceTokenAccount = await createAccount(
         provider.connection,
         wallet.payer,
-        canonicalMint,
+        wrappedMint,
         wallet.publicKey,
         Keypair.generate()
       );
@@ -380,7 +380,7 @@ describe("canonical-swap", () => {
       await mintTo(
         provider.connection,
         canonicalAuthority,
-        canonicalMint,
+        wrappedMint,
         sourceTokenAccount,
         canonicalAuthority.publicKey,
         sourceAmount
@@ -420,7 +420,7 @@ describe("canonical-swap", () => {
         .rpc();
 
       await expect(failedSwap).to.eventually.be.rejectedWith(
-        "146: A seeds constraint was violated"
+        "AnchorError caused by account: wrapped_token_account. Error Code: ConstraintSeeds. Error Number: 2006. Error Message: A seeds constraint was violated."
       );
 
       const postTxDestinationTokenAccount = await getAccount(
