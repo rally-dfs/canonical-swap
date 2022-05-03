@@ -62,21 +62,17 @@ const main = async () => {
     canSwap.programId
   );
 
-  const [wrappedTokenAccountAuthority, wrappedTokenAccountAuthorityBump] =
-    await PublicKey.findProgramAddress(
-      [
-        WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
-        canonicalMint.toBuffer(),
-        wrappedMint.toBuffer(),
-      ],
-      canSwap.programId
-    );
+  const [wrappedTokenAccountAuthority] = await PublicKey.findProgramAddress(
+    [
+      WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+      canonicalMint.toBuffer(),
+      wrappedMint.toBuffer(),
+    ],
+    canSwap.programId
+  );
 
   const tx = await canSwap.methods
-    .swapCanonicalForWrapped(
-      destinationAmount,
-      wrappedTokenAccountAuthorityBump
-    )
+    .swapCanonicalForWrapped(destinationAmount)
     .accounts({
       user: wallet.publicKey,
       sourceCanonicalTokenAccount: sourceTokenAccount,
