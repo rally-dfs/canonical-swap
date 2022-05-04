@@ -424,6 +424,7 @@ pub struct EnableWrappedToken<'info> {
 
     #[account(
         constraint = canonical_data.authority == *current_authority.key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
@@ -443,6 +444,7 @@ pub struct DisableWrappedToken<'info> {
 
     #[account(
         constraint = canonical_data.authority == *current_authority.key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
