@@ -5,10 +5,25 @@ import {
   Wallet,
   workspace,
 } from "@project-serum/anchor";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import { getMint, getAccount } from "@solana/spl-token";
+import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  SYSVAR_RENT_PUBKEY,
+} from "@solana/web3.js";
+import {
+  getMint,
+  getAccount,
+  TOKEN_PROGRAM_ID,
+  createMint,
+} from "@solana/spl-token";
 import { CanonicalSwap } from "../target/types/canonical_swap";
-import { expect, fixture } from "./shared";
+import {
+  expect,
+  fixture,
+  TOKEN_ACCOUNT_SEED,
+  WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+} from "./shared";
 
 describe("Initial State", () => {
   // Configure the client to use the local cluster.
@@ -113,6 +128,62 @@ describe("Initial State", () => {
       );
 
       expect(dataAcctInfo.owner).to.deep.eq(canSwap.programId);
+    });
+
+    it("Fails to initialize a wrapped token if not the canonical authority", async () => {
+      const badWrappedData = Keypair.generate();
+      const badWrappedMint = await createMint(
+        provider.connection,
+        wallet.payer,
+        wallet.publicKey,
+        null,
+        wrappedDecimals
+      );
+
+      const [badWrappedTokenAccount] = await PublicKey.findProgramAddress(
+        [
+          TOKEN_ACCOUNT_SEED,
+          canonicalMint.toBuffer(),
+          badWrappedMint.toBuffer(),
+        ],
+        canSwap.programId
+      );
+
+      const [badWrappedTokenAccountAuthority] =
+        await PublicKey.findProgramAddress(
+          [
+            WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+            canonicalMint.toBuffer(),
+            badWrappedMint.toBuffer(),
+          ],
+          canSwap.programId
+        );
+
+      const failedTx = canSwap.methods
+        .initializeWrappedToken()
+        .accounts({
+          currentAuthority: wallet.publicKey,
+          wrappedTokenMint: badWrappedMint,
+          pdaWrappedTokenAccount: badWrappedTokenAccount,
+          pdaWrappedTokenAccountAuthority: badWrappedTokenAccountAuthority,
+          canonicalData: canonicalData.publicKey,
+          wrappedData: badWrappedData.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+          systemProgram: SystemProgram.programId,
+        })
+        .preInstructions([
+          await canSwap.account.wrappedData.createInstruction(
+            badWrappedData,
+            8 + 68
+          ),
+        ])
+        .signers([badWrappedData, wallet.payer])
+        .rpc();
+
+      await expect(failedTx).to.eventually.be.rejectedWith(
+        "AnchorError caused by account: canonical_data. Error Code: ConstraintRaw. Error Number: 2003. Error Message: A raw constraint was violated."
+      );
     });
   });
 });
