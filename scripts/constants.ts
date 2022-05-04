@@ -3,7 +3,7 @@ import { utils as anchorUtils } from "@project-serum/anchor";
 import { PublicKey } from "@solana/web3.js";
 
 export const CANONICAL_SWAP_PROGRAM_ID = new PublicKey(
-  "CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk"
+  "CSwAp3hdedZJBmhWMjv8BJ7anTLMQ2hBqKdnXV5bB3Nz"
 );
 
 export const CANONICAL_MINT_AUTHORITY_PDA_SEED = Buffer.from(

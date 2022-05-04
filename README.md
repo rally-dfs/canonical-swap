@@ -10,9 +10,9 @@ THE MINT AUTHORITY TRANSFER IS A ONE WAY TRANSFER. There is no way to return the
 
 ## Mainnet deploy
 
-This program is deployed on mainnet with Program Id: `CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk`
+This program is deployed on mainnet with Program Id: `CSwAp3hdedZJBmhWMjv8BJ7anTLMQ2hBqKdnXV5bB3Nz`
 
-Source has been verified [here](https://anchor.projectserum.com/program/CSWAPqg5XDRcknL2CmDVtmBHX2KFEnaLZgHFCC89nhDk)
+Source has been verified [here](https://anchor.projectserum.com/program/CSwAp3hdedZJBmhWMjv8BJ7anTLMQ2hBqKdnXV5bB3Nz)
 
 ## Local build and test
 
