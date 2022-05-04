@@ -1,0 +1,21 @@
+name: Anchor CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Build Docker Image
+      run: docker build -t anchor-program-test-env -f ci.Dockerfile .
+
+    - name: Run Test Suite
+      run: docker run anchor-program-test-env yarn test
