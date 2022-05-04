@@ -42,7 +42,8 @@ mod canonical_swap {
         wrapped_data.canonical_data = *ctx.accounts.canonical_data.to_account_info().key;
         wrapped_data.mint = *ctx.accounts.wrapped_token_mint.to_account_info().key;
         wrapped_data.decimals = ctx.accounts.wrapped_token_mint.decimals;
-        wrapped_data.paused = false;
+        wrapped_data.swap_canonical_for_wrapped_enabled = true;
+        wrapped_data.swap_wrapped_for_canonical_enabled = true;
 
         // Take ownership of token account for storage of wrapped
         let cpi_accounts = SetAuthority {
@@ -180,18 +181,32 @@ mod canonical_swap {
         Ok(())
     }
 
-    /// Pause wrapped token to disallow any swaps in case of a bridge exploit
-    pub fn pause_wrapped_token(ctx: Context<PauseWrappedToken>) -> Result<()> {
+    /// Enable wrapped token to allow a specific swap direction
+    pub fn enable_wrapped_token(
+        ctx: Context<EnableWrappedToken>,
+        direction_swap_wrapped: bool,
+    ) -> Result<()> {
         let wrapped_data = &mut ctx.accounts.wrapped_data;
-        wrapped_data.paused = true;
+        if direction_swap_wrapped {
+            wrapped_data.swap_wrapped_for_canonical_enabled = true;
+        } else {
+            wrapped_data.swap_canonical_for_wrapped_enabled = true;
+        }
 
         Ok(())
     }
 
-    /// Unpause wrapped token to resume allowing swaps
-    pub fn unpause_wrapped_token(ctx: Context<UnpauseWrappedToken>) -> Result<()> {
+    /// Disable wrapped token to disallow a specific swap direction
+    pub fn disable_wrapped_token(
+        ctx: Context<DisableWrappedToken>,
+        direction_swap_wrapped: bool,
+    ) -> Result<()> {
         let wrapped_data = &mut ctx.accounts.wrapped_data;
-        wrapped_data.paused = false;
+        if direction_swap_wrapped {
+            wrapped_data.swap_wrapped_for_canonical_enabled = false;
+        } else {
+            wrapped_data.swap_canonical_for_wrapped_enabled = false;
+        }
 
         Ok(())
     }
@@ -342,7 +357,7 @@ pub struct SwapWrappedForCanonical<'info> {
     #[account(
         has_one = canonical_data,
         constraint = wrapped_data.mint == source_wrapped_token_account.mint,
-        constraint = wrapped_data.paused == false,
+        constraint = wrapped_data.swap_wrapped_for_canonical_enabled == true,
         owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
@@ -393,7 +408,7 @@ pub struct SwapCanonicalForWrapped<'info> {
     #[account(
         has_one = canonical_data,
         constraint = wrapped_data.mint == destination_wrapped_token_account.mint,
-        constraint = wrapped_data.paused == false,
+        constraint = wrapped_data.swap_canonical_for_wrapped_enabled == true,
         owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
@@ -402,38 +417,40 @@ pub struct SwapCanonicalForWrapped<'info> {
 }
 
 #[derive(Accounts)]
-pub struct PauseWrappedToken<'info> {
+#[instruction(direction_swap_wrapped: bool)]
+pub struct EnableWrappedToken<'info> {
     // must equal `canonical_data.authority`
     pub current_authority: Signer<'info>,
 
     #[account(
         constraint = canonical_data.authority == *current_authority.key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
     #[account(
         mut,
         has_one = canonical_data,
-        constraint = wrapped_data.paused == false,
         owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
 }
 
 #[derive(Accounts)]
-pub struct UnpauseWrappedToken<'info> {
+#[instruction(direction_swap_wrapped: bool)]
+pub struct DisableWrappedToken<'info> {
     // must equal `canonical_data.authority`
     pub current_authority: Signer<'info>,
 
     #[account(
         constraint = canonical_data.authority == *current_authority.key,
+        owner = *program_id,
     )]
     pub canonical_data: Account<'info, CanonicalData>,
 
     #[account(
         mut,
         has_one = canonical_data,
-        constraint = wrapped_data.paused == true,
         owner = *program_id,
     )]
     pub wrapped_data: Account<'info, WrappedData>,
@@ -471,5 +488,6 @@ pub struct WrappedData {
     pub canonical_data: Pubkey,
     pub mint: Pubkey,
     pub decimals: u8,
-    pub paused: bool,
+    pub swap_wrapped_for_canonical_enabled: bool,
+    pub swap_canonical_for_wrapped_enabled: bool,
 }
