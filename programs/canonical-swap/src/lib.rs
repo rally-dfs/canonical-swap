@@ -18,6 +18,8 @@ mod canonical_swap {
         canonical_data.authority = *ctx.accounts.initializer.key;
         canonical_data.mint = *ctx.accounts.canonical_mint.to_account_info().key;
         canonical_data.decimals = ctx.accounts.canonical_mint.decimals;
+        canonical_data.canonical_mint_authority_bump =
+            *ctx.bumps.get("pda_canonical_mint_authority").unwrap();
 
         // Take over mint authority for canonical token
         let cpi_accounts = SetAuthority {
@@ -42,6 +44,10 @@ mod canonical_swap {
         wrapped_data.canonical_data = *ctx.accounts.canonical_data.to_account_info().key;
         wrapped_data.mint = *ctx.accounts.wrapped_token_mint.to_account_info().key;
         wrapped_data.decimals = ctx.accounts.wrapped_token_mint.decimals;
+        wrapped_data.wrapped_token_account_authority_bump = *ctx
+            .bumps
+            .get("pda_wrapped_token_account_authority")
+            .unwrap();
         wrapped_data.swap_canonical_for_wrapped_enabled = true;
         wrapped_data.swap_wrapped_for_canonical_enabled = true;
 
@@ -65,7 +71,6 @@ mod canonical_swap {
     pub fn swap_wrapped_for_canonical(
         ctx: Context<SwapWrappedForCanonical>,
         canonical_amount: u64,
-        canonical_mint_authority_bump: u8,
     ) -> Result<()> {
         // Determine decimal conversion
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
@@ -107,7 +112,7 @@ mod canonical_swap {
         let authority_seeds = &[
             CANONICAL_MINT_AUTHORITY_PDA_SEED,
             ctx.accounts.canonical_mint.to_account_info().key.as_ref(),
-            &[canonical_mint_authority_bump],
+            &[ctx.accounts.canonical_data.canonical_mint_authority_bump],
         ];
 
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
@@ -123,7 +128,6 @@ mod canonical_swap {
     pub fn swap_canonical_for_wrapped(
         ctx: Context<SwapCanonicalForWrapped>,
         wrapped_amount: u64,
-        wrapped_token_account_authority_bump: u8,
     ) -> Result<()> {
         // Determine decimal conversion
         let wrapped_decimals = ctx.accounts.wrapped_data.decimals as u32;
@@ -170,7 +174,10 @@ mod canonical_swap {
             WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
             ctx.accounts.canonical_data.mint.as_ref(),
             ctx.accounts.wrapped_data.mint.as_ref(),
-            &[wrapped_token_account_authority_bump],
+            &[ctx
+                .accounts
+                .wrapped_data
+                .wrapped_token_account_authority_bump],
         ];
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token::transfer(
@@ -305,7 +312,7 @@ pub struct InitializeWrappedToken<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(canonical_amount: u64, canonical_mint_authority_bump: u8)]
+#[instruction(canonical_amount: u64)]
 pub struct SwapWrappedForCanonical<'info> {
     // Any end user wanting to swap tokens
     pub user: Signer<'info>,
@@ -366,7 +373,7 @@ pub struct SwapWrappedForCanonical<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(wrapped_amount: u64, wrapped_token_account_authority_bump: u8)]
+#[instruction(wrapped_amount: u64)]
 pub struct SwapCanonicalForWrapped<'info> {
     // any signer
     pub user: Signer<'info>,
@@ -481,6 +488,7 @@ pub struct CanonicalData {
     pub authority: Pubkey,
     pub mint: Pubkey,
     pub decimals: u8,
+    pub canonical_mint_authority_bump: u8,
 }
 
 #[account]
@@ -488,6 +496,7 @@ pub struct WrappedData {
     pub canonical_data: Pubkey,
     pub mint: Pubkey,
     pub decimals: u8,
+    pub wrapped_token_account_authority_bump: u8,
     pub swap_wrapped_for_canonical_enabled: bool,
     pub swap_canonical_for_wrapped_enabled: bool,
 }

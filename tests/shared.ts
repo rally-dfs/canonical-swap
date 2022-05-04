@@ -84,11 +84,10 @@ export const fixture = async (
     1000000000
   );
 
-  const [expectedMintAuthorityPDA, mintAuthorityBump] =
-    await PublicKey.findProgramAddress(
-      [CANONICAL_MINT_AUTHORITY_PDA_SEED, canonicalMint.toBuffer()],
-      canSwap.programId
-    );
+  const [expectedMintAuthorityPDA] = await PublicKey.findProgramAddress(
+    [CANONICAL_MINT_AUTHORITY_PDA_SEED, canonicalMint.toBuffer()],
+    canSwap.programId
+  );
 
   await canSwap.methods
     .initializeCanonicalToken()
@@ -122,15 +121,14 @@ export const fixture = async (
     canSwap.programId
   );
 
-  const [wrappedTokenAccountAuthority, wrappedTokenAccountAuthorityBump] =
-    await PublicKey.findProgramAddress(
-      [
-        WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
-        canonicalMint.toBuffer(),
-        wrappedMint.toBuffer(),
-      ],
-      canSwap.programId
-    );
+  const [wrappedTokenAccountAuthority] = await PublicKey.findProgramAddress(
+    [
+      WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
+      canonicalMint.toBuffer(),
+      wrappedMint.toBuffer(),
+    ],
+    canSwap.programId
+  );
 
   await canSwap.methods
     .initializeWrappedToken()
@@ -169,10 +167,8 @@ export const fixture = async (
     wrappedDecimals,
     canonicalMint,
     expectedMintAuthorityPDA,
-    mintAuthorityBump,
     wrappedMint,
     wrappedTokenAccount,
     wrappedTokenAccountAuthority,
-    wrappedTokenAccountAuthorityBump,
   };
 };

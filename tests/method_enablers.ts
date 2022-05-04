@@ -49,11 +49,9 @@ describe("Method enablers", () => {
       wrappedData,
       canonicalMint,
       expectedMintAuthorityPDA,
-      mintAuthorityBump,
       wrappedMint,
       wrappedTokenAccount,
       wrappedTokenAccountAuthority,
-      wrappedTokenAccountAuthorityBump,
     } = await fixture(provider, wallet, canSwap));
   });
 
@@ -122,7 +120,7 @@ describe("Method enablers", () => {
       );
 
       const failedSwap = canSwap.methods
-        .swapCanonicalForWrapped(new BN(0), wrappedTokenAccountAuthorityBump)
+        .swapCanonicalForWrapped(new BN(0))
         .accounts({
           user: wallet.publicKey,
           sourceCanonicalTokenAccount: sourceTokenAccount,
@@ -172,7 +170,7 @@ describe("Method enablers", () => {
       );
 
       await canSwap.methods
-        .swapWrappedForCanonical(new BN(destinationAmount), mintAuthorityBump)
+        .swapWrappedForCanonical(new BN(destinationAmount))
         .accounts({
           user: wallet.publicKey,
           destinationCanonicalTokenAccount: destinationTokenAccount,
@@ -266,7 +264,7 @@ describe("Method enablers", () => {
       );
 
       const failedSwap = canSwap.methods
-        .swapWrappedForCanonical(new BN(0), mintAuthorityBump)
+        .swapWrappedForCanonical(new BN(0))
         .accounts({
           user: wallet.publicKey,
           destinationCanonicalTokenAccount: destinationTokenAccount,
@@ -317,10 +315,7 @@ describe("Method enablers", () => {
       );
 
       await canSwap.methods
-        .swapCanonicalForWrapped(
-          new BN(destinationAmount),
-          wrappedTokenAccountAuthorityBump
-        )
+        .swapCanonicalForWrapped(new BN(destinationAmount))
         .accounts({
           user: wallet.publicKey,
           sourceCanonicalTokenAccount: sourceTokenAccount,

@@ -38,9 +38,6 @@ describe("Swaps", () => {
   let wrappedTokenAccount: PublicKey;
   let wrappedTokenAccountAuthority: PublicKey;
 
-  let mintAuthorityBump: number;
-  let wrappedTokenAccountAuthorityBump: number;
-
   beforeEach("Set up fresh accounts", async () => {
     ({
       tokenDistributorTokenAccount,
@@ -49,11 +46,9 @@ describe("Swaps", () => {
       wrappedData,
       canonicalMint,
       expectedMintAuthorityPDA,
-      mintAuthorityBump,
       wrappedMint,
       wrappedTokenAccount,
       wrappedTokenAccountAuthority,
-      wrappedTokenAccountAuthorityBump,
     } = await fixture(provider, wallet, canSwap));
   });
 
@@ -76,7 +71,7 @@ describe("Swaps", () => {
       );
 
       const failedSwap = canSwap.methods
-        .swapWrappedForCanonical(new BN(0), mintAuthorityBump)
+        .swapWrappedForCanonical(new BN(0))
         .accounts({
           user: wallet.publicKey,
           destinationCanonicalTokenAccount: destinationTokenAccount,
@@ -140,7 +135,7 @@ describe("Swaps", () => {
       expect(preTxSourceTokenAccount.amount).to.eq(sourceAmount);
 
       await canSwap.methods
-        .swapWrappedForCanonical(new BN(destinationAmount), mintAuthorityBump)
+        .swapWrappedForCanonical(new BN(destinationAmount))
         .accounts({
           user: wallet.publicKey,
           destinationCanonicalTokenAccount: destinationTokenAccount,
@@ -197,7 +192,7 @@ describe("Swaps", () => {
       expect(preTxDestinationTokenAccount.amount).to.eq(BigInt(0));
 
       await canSwap.methods
-        .swapWrappedForCanonical(new BN(destinationAmount), mintAuthorityBump)
+        .swapWrappedForCanonical(new BN(destinationAmount))
         .accounts({
           user: wallet.publicKey,
           destinationCanonicalTokenAccount: destinationTokenAccount,
@@ -272,10 +267,7 @@ describe("Swaps", () => {
       expect(preTxSourceTokenAccount.amount).to.eq(sourceAmount);
 
       await canSwap.methods
-        .swapCanonicalForWrapped(
-          new BN(destinationAmount),
-          wrappedTokenAccountAuthorityBump
-        )
+        .swapCanonicalForWrapped(new BN(destinationAmount))
         .accounts({
           user: wallet.publicKey,
           sourceCanonicalTokenAccount: sourceTokenAccount,
