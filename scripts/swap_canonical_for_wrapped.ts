@@ -8,7 +8,6 @@ import {
 import { PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
-  CANONICAL_MINT_AUTHORITY_PDA_SEED,
   CANONICAL_SWAP_PROGRAM_ID,
   TOKEN_ACCOUNT_SEED,
   WRAPPED_TOKEN_OWNER_AUTHORITY_PDA_SEED,
