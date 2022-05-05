@@ -1,6 +1,17 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, MintTo, SetAuthority, Token, TokenAccount, Transfer};
+use solana_security_txt::security_txt;
 use spl_token::instruction::AuthorityType;
+
+security_txt! {
+    name: "Canonical Swap",
+    project_url: "https://rly.network/",
+    contacts: "email:security@rly.network",
+    policy: "https://rly.network/security-policy",
+    preferred_languages: "en",
+    source_code: "https://github.com/rally-dfs/canonical-swap"
+}
+
 declare_id!("CSwAp3hdedZJBmhWMjv8BJ7anTLMQ2hBqKdnXV5bB3Nz");
 
 const CANONICAL_MINT_AUTHORITY_PDA_SEED: &[u8] = b"can_mint_authority";
