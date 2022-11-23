@@ -3,6 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, SetAuthority, Token, TokenAcco
 use solana_security_txt::security_txt;
 use spl_token::instruction::AuthorityType;
 
+#[cfg(not(feature = "no-entrypoint"))]
 security_txt! {
     name: "Canonical Swap",
     project_url: "https://rly.network/",
